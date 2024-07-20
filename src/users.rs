@@ -60,13 +60,13 @@ impl ResponseError for ServiceError {
 }
 
 #[derive(Serialize)]
-struct UserDetails {
-    id: i32,
-    username: String,
-    email: String,
-    real_name: String,
-    summary: String,
-    created_at: String,
+pub struct UserDetails {
+    pub id: i32,
+    pub username: String,
+    pub email: String,
+    pub real_name: String,
+    pub summary: String,
+    pub created_at: String,
 }
 
 impl From<User> for UserDetails {

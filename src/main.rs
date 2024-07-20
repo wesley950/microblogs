@@ -11,6 +11,7 @@ use diesel::{r2d2, SqliteConnection};
 use dotenvy::dotenv;
 use env_logger::Env;
 
+mod posts;
 mod users;
 
 #[actix_web::main]
@@ -44,6 +45,7 @@ async fn main() -> Result<(), std::io::Error> {
                     .build(),
             )
             .configure(users::configure)
+            .configure(posts::configure)
     })
     .bind(("0.0.0.0", 8080))?
     .run()
