@@ -95,15 +95,15 @@ impl FromRequest for UserDetails {
         let pool = req.app_data::<web::Data<DbPool>>().unwrap();
         let identity = Identity::from_request(&req, payload).into_inner();
 
-        if identity.is_err() {
-            return ready(Err(ServiceError::InternalServerError.into()));
+        if let Err(err) = identity {
+            return ready(Err(err));
         }
 
         let identity = identity.unwrap();
         let username_in_session = identity.id();
 
-        if username_in_session.is_err() {
-            return ready(Err(ServiceError::InternalServerError.into()));
+        if let Err(err) = username_in_session {
+            return ready(Err(err.into()));
         }
 
         let username_in_session = username_in_session.unwrap();
