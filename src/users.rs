@@ -14,7 +14,10 @@ use argon2::{
     Argon2, PasswordHash, PasswordVerifier,
 };
 use chrono::NaiveDateTime;
-use diesel::{prelude::*, result::Error::NotFound};
+use diesel::{
+    query_dsl::filter_dsl::FilterDsl, result::Error::NotFound, ExpressionMethods, Insertable,
+    Queryable, RunQueryDsl, Selectable, SelectableHelper,
+};
 use serde::{Deserialize, Serialize};
 
 use microblogs::{schema, DbPool};
