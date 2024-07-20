@@ -11,6 +11,7 @@ use diesel::{r2d2, SqliteConnection};
 use dotenvy::dotenv;
 use env_logger::Env;
 
+mod feeds;
 mod posts;
 mod users;
 
@@ -46,6 +47,7 @@ async fn main() -> Result<(), std::io::Error> {
             )
             .configure(users::configure)
             .configure(posts::configure)
+            .configure(feeds::configure)
     })
     .bind(("0.0.0.0", 8080))?
     .run()

@@ -4,6 +4,7 @@ use actix_web::{
     web::{self, ServiceConfig},
     Error, HttpResponse,
 };
+use chrono::NaiveDateTime;
 use diesel::{Insertable, Queryable, RunQueryDsl, Selectable, SelectableHelper};
 use microblogs::{schema, DbPool};
 use serde::Deserialize;
@@ -25,8 +26,10 @@ struct NewPost<'a> {
 #[derive(Queryable, Selectable)]
 #[diesel(table_name=schema::posts)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
-struct Post {
+pub struct Post {
     pub id: i32,
+    pub body: String,
+    pub created_at: NaiveDateTime,
 }
 
 #[post("/create")]
