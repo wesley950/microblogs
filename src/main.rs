@@ -1,5 +1,6 @@
 use std::env;
 
+use actix_cors::Cors;
 use actix_web::{middleware::Logger, web};
 use diesel::{r2d2, SqliteConnection};
 use dotenvy::dotenv;
@@ -30,6 +31,17 @@ async fn main() -> Result<(), std::io::Error> {
                 secret_key: std::env::var("SECRET_KEY").expect("SECRET_KEY must be set"),
             }))
             .wrap(Logger::default())
+            .wrap(
+                Cors::default()
+                    .allowed_origin(
+                        std::env::var("FRONTEND_ORIGIN")
+                            .expect("FRONTEND_ORIGIN must be set")
+                            .as_str(),
+                    )
+                    .allow_any_method()
+                    .allow_any_header()
+                    .max_age(3600),
+            )
             .configure(users::configure)
             .configure(posts::configure)
             .configure(feeds::configure)
