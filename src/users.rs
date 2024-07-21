@@ -271,7 +271,7 @@ async fn authenticate_user(
     };
 
     let access_info = AccessInfo { token };
-    Ok(HttpResponse::Found().json(access_info))
+    Ok(HttpResponse::Ok().json(access_info))
 }
 
 #[get("/refresh_access")]
@@ -294,7 +294,7 @@ async fn refresh_access(
     };
 
     let access_info = AccessInfo { token };
-    Ok(HttpResponse::Found().json(access_info))
+    Ok(HttpResponse::Ok().json(access_info))
 }
 
 #[get("/me")]
