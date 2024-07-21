@@ -1,12 +1,11 @@
 use actix_web::{
-    error::ErrorInternalServerError,
     post,
     web::{self, ServiceConfig},
     Error, HttpResponse,
 };
 use chrono::NaiveDateTime;
 use diesel::{Insertable, Queryable, RunQueryDsl, Selectable, SelectableHelper};
-use microblogs::{schema, DbPool};
+use microblogs::{errors::ServiceError, schema, DbPool};
 use serde::Deserialize;
 
 use crate::users::UserDetails;
@@ -41,26 +40,32 @@ async fn create_post(
     use schema::posts::dsl::*;
 
     let post = web::block(move || {
-        let mut conn = pool.get().unwrap();
+        let mut conn = match pool.get() {
+            Ok(conn) => conn,
+            Err(_) => return Err(ServiceError::InternalServerError),
+        };
 
         let new_post = NewPost {
             poster_id: current_user.id,
             body: &info.body,
         };
 
-        diesel::insert_into(posts)
+        let post = match diesel::insert_into(posts)
             .values(&new_post)
             .returning(Post::as_returning())
             .get_result(&mut conn)
-    })
-    .await?;
+        {
+            Ok(post) => post,
+            Err(_) => return Err(ServiceError::InternalServerError),
+        };
 
-    match post {
-        Ok(post) => Ok(HttpResponse::Created()
-            .append_header(("Location", format!("/posts/{}", post.id)))
-            .finish()),
-        Err(err) => Err(ErrorInternalServerError(err.to_string())),
-    }
+        Ok(post)
+    })
+    .await??;
+
+    Ok(HttpResponse::Created()
+        .append_header(("Location", format!("/posts/{}", post.id)))
+        .finish())
 }
 
 pub fn configure(cfg: &mut ServiceConfig) {

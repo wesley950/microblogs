@@ -1,13 +1,9 @@
-use std::{
-    fmt::Display,
-    future::{ready, Ready},
-};
+use std::future::{ready, Ready};
 
-use actix_identity::Identity;
 use actix_web::{
     get, post,
     web::{self, ServiceConfig},
-    Error, FromRequest, HttpMessage, HttpRequest, HttpResponse, ResponseError,
+    Error, FromRequest, HttpRequest, HttpResponse,
 };
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
@@ -15,12 +11,13 @@ use argon2::{
 };
 use chrono::NaiveDateTime;
 use diesel::{
-    query_dsl::filter_dsl::FilterDsl, result::Error::NotFound, ExpressionMethods, Insertable,
-    Queryable, RunQueryDsl, Selectable, SelectableHelper,
+    query_dsl::filter_dsl::FilterDsl, ExpressionMethods, Insertable, Queryable, RunQueryDsl,
+    Selectable, SelectableHelper,
 };
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 
-use microblogs::{schema, DbPool};
+use microblogs::{errors::ServiceError, schema, AppState, DbPool};
 
 #[derive(Deserialize)]
 struct UserRegister {
@@ -38,28 +35,10 @@ struct UserLogin {
     password: String,
 }
 
-#[derive(Debug)]
-enum ServiceError {
-    InternalServerError,
-    Unauthorized,
-}
-
-impl Display for ServiceError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ServiceError::InternalServerError => write!(f, "Internal server error"),
-            ServiceError::Unauthorized => write!(f, "Unauthorized"),
-        }
-    }
-}
-
-impl ResponseError for ServiceError {
-    fn error_response(&self) -> HttpResponse {
-        match self {
-            ServiceError::InternalServerError => HttpResponse::InternalServerError().finish(),
-            ServiceError::Unauthorized => HttpResponse::Unauthorized().finish(),
-        }
-    }
+#[derive(Serialize, Deserialize, Debug)]
+struct Claims {
+    sub: String,
+    exp: usize,
 }
 
 #[derive(Serialize)]
@@ -70,6 +49,7 @@ pub struct UserDetails {
     pub real_name: String,
     pub summary: String,
     pub created_at: String,
+    pub deleted: bool,
 }
 
 impl From<User> for UserDetails {
@@ -81,6 +61,7 @@ impl From<User> for UserDetails {
             real_name: user.real_name,
             summary: user.summary,
             created_at: user.created_at.to_string(),
+            deleted: user.deleted,
         }
     }
 }
@@ -89,40 +70,64 @@ impl FromRequest for UserDetails {
     type Error = Error;
     type Future = Ready<Result<UserDetails, Error>>;
 
-    fn from_request(req: &HttpRequest, payload: &mut actix_web::dev::Payload) -> Self::Future {
+    fn from_request(req: &HttpRequest, _payload: &mut actix_web::dev::Payload) -> Self::Future {
         use schema::users::dsl::*;
 
-        let pool = req.app_data::<web::Data<DbPool>>().unwrap();
-        let identity = Identity::from_request(&req, payload).into_inner();
+        let pool = match req.app_data::<web::Data<DbPool>>() {
+            Some(pool) => pool,
+            None => return ready(Err(ServiceError::InternalServerError.into())),
+        };
+        let app_state = match req.app_data::<web::Data<AppState>>() {
+            Some(app_state) => app_state,
+            None => return ready(Err(ServiceError::InternalServerError.into())),
+        };
 
-        if let Err(err) = identity {
-            return ready(Err(err));
-        }
+        let authorization_header = match req.headers().get("Authorization") {
+            Some(header) => header,
+            None => return ready(Err(ServiceError::Unauthorized.into())),
+        };
 
-        let identity = identity.unwrap();
-        let username_in_session = identity.id();
+        let authorization_header = match authorization_header.to_str() {
+            Ok(header) => header,
+            Err(_) => return ready(Err(ServiceError::InternalServerError.into())),
+        };
 
-        if let Err(err) = username_in_session {
-            return ready(Err(err.into()));
-        }
+        let bearer_token = match authorization_header.strip_prefix("Bearer ") {
+            Some(token) => token,
+            None => return ready(Err(ServiceError::InternalServerError.into())),
+        };
 
-        let username_in_session = username_in_session.unwrap();
-        let conn = pool.get();
+        let secret = app_state.secret_key.clone();
+        let token_data = match decode::<Claims>(
+            bearer_token,
+            &DecodingKey::from_secret(secret.as_ref()),
+            &Validation::default(),
+        ) {
+            Ok(token) => token,
+            Err(_) => return ready(Err(ServiceError::Unauthorized.into())),
+        };
+        let username_in_session = token_data.claims.sub;
 
-        if conn.is_err() {
-            return ready(Err(ServiceError::InternalServerError.into()));
-        }
+        let mut conn = match pool.get() {
+            Ok(conn) => conn,
+            Err(_) => return ready(Err(ServiceError::InternalServerError.into())),
+        };
 
-        let mut conn = conn.unwrap();
-        let user: Result<User, diesel::result::Error> = users
+        let user: User = match users
             .filter(username.eq(username_in_session))
-            .first(&mut conn);
+            .first(&mut conn)
+        {
+            Ok(user) => user,
+            Err(_) => return ready(Err(ServiceError::Unauthorized.into())),
+        };
 
-        match user {
-            Ok(user) => ready(Ok(user.into())),
-            Err(_) => ready(Err(ServiceError::Unauthorized.into())),
-        }
+        ready(Ok(user.into()))
     }
+}
+
+#[derive(Serialize)]
+struct AccessInfo {
+    token: String,
 }
 
 #[derive(Queryable, Selectable)]
@@ -149,30 +154,31 @@ struct NewUser<'a> {
     pub password: &'a str,
 }
 
-fn hash_password(password: &str) -> String {
-    let password_bytes = password.as_bytes();
-    let salt = SaltString::generate(&mut OsRng);
-
-    let argon2 = Argon2::default();
-    let hashed_password = argon2
-        .hash_password(password_bytes, &salt)
-        .unwrap()
-        .to_string();
-    hashed_password
-}
-
 #[post("/register")]
 async fn register_user(
-    request: HttpRequest,
     info: web::Json<UserRegister>,
     pool: web::Data<DbPool>,
+    app_state: web::Data<AppState>,
 ) -> Result<HttpResponse, actix_web::Error> {
     use schema::users::dsl::*;
 
     let user = web::block(move || {
-        let mut conn = pool.get().unwrap();
+        let mut conn = match pool.get() {
+            Ok(conn) => conn,
+            Err(_) => {
+                return Err(ServiceError::InternalServerError);
+            }
+        };
 
-        let hashed_password = hash_password(&info.password);
+        let password_bytes = info.password.as_bytes();
+        let salt = SaltString::generate(&mut OsRng);
+        let argon2 = Argon2::default();
+        let hashed_password = match argon2.hash_password(password_bytes, &salt) {
+            Ok(hashed_password) => hashed_password.to_string(),
+            Err(_) => {
+                return Err(ServiceError::InternalServerError);
+            }
+        };
         let new_user = NewUser {
             username: &info.username,
             email: &info.email, // TODO: validate email
@@ -181,70 +187,114 @@ async fn register_user(
             password: &hashed_password,
         };
 
-        diesel::insert_into(users)
+        match diesel::insert_into(users)
             .values(&new_user)
             .returning(User::as_returning())
             .get_result(&mut conn)
-    })
-    .await?;
-
-    match user {
-        Ok(user) => {
-            Identity::login(&mut request.extensions(), user.username.clone()).unwrap();
-            let details: UserDetails = user.into();
-            Ok(HttpResponse::Created().json(details))
+        {
+            Ok(user) => return Ok(user),
+            Err(_) => return Err(ServiceError::BadRequest),
         }
-        Err(err) => Ok(HttpResponse::InternalServerError().body(err.to_string())),
-    }
+    })
+    .await??;
+
+    let claims = Claims {
+        sub: user.username,
+        exp: (chrono::Utc::now() + chrono::Duration::hours(24)).timestamp() as usize,
+    };
+    let secret = app_state.secret_key.clone();
+    let token = match encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_ref()),
+    ) {
+        Ok(token) => token,
+        Err(_) => return Err(ServiceError::InternalServerError.into()),
+    };
+
+    let access_info = AccessInfo { token };
+    Ok(HttpResponse::Ok().json(access_info))
 }
 
 #[post("/login")]
 async fn authenticate_user(
-    request: HttpRequest,
     info: web::Json<UserLogin>,
     pool: web::Data<DbPool>,
+    app_state: web::Data<AppState>,
 ) -> Result<HttpResponse, actix_web::Error> {
     use schema::users::dsl::*;
 
     let (target_username, target_password) = (info.username.clone(), info.password.clone());
 
     let user = web::block(move || {
-        let mut conn = pool.get().unwrap();
+        let mut conn = match pool.get() {
+            Ok(conn) => conn,
+            Err(_) => return Err(ServiceError::InternalServerError),
+        };
 
-        let user: Result<User, diesel::result::Error> = users
+        let user: User = match users
             .filter(username.eq(target_username.as_str()))
-            .first(&mut conn);
+            .first(&mut conn)
+        {
+            Ok(user) => user,
+            Err(_) => return Err(ServiceError::Unauthorized),
+        };
 
-        if user.is_err() {
-            return Err(NotFound);
-        }
-
-        user
+        Ok(user)
     })
-    .await?;
+    .await??;
 
-    if user.is_err() {
-        return Ok(HttpResponse::Unauthorized().finish());
-    }
-
-    let user = user.unwrap();
-    let parsed_hash = PasswordHash::new(&user.password);
-
-    if parsed_hash.is_err() {
-        return Ok(HttpResponse::Unauthorized().finish());
-    }
+    let parsed_password_hash = match PasswordHash::new(&user.password) {
+        Ok(hash) => hash,
+        Err(_) => return Err(ServiceError::InternalServerError.into()),
+    };
 
     let argon2 = Argon2::default();
-    let parsed_hash = parsed_hash.unwrap();
-    let result = argon2.verify_password(target_password.as_bytes(), &parsed_hash);
+    let verified = argon2.verify_password(target_password.as_bytes(), &parsed_password_hash);
 
-    if result.is_err() || user.deleted {
-        return Ok(HttpResponse::Unauthorized().finish());
+    if verified.is_err() {
+        return Err(ServiceError::Unauthorized.into());
     }
 
-    Identity::login(&mut request.extensions(), user.username.clone()).unwrap();
-    let details: UserDetails = user.into();
-    Ok(HttpResponse::Found().json(details))
+    let claims = Claims {
+        sub: user.username,
+        exp: (chrono::Utc::now() + chrono::Duration::hours(24)).timestamp() as usize,
+    };
+    let secret = app_state.secret_key.clone();
+    let token = match encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_ref()),
+    ) {
+        Ok(token) => token,
+        Err(_) => return Err(ServiceError::InternalServerError.into()),
+    };
+
+    let access_info = AccessInfo { token };
+    Ok(HttpResponse::Found().json(access_info))
+}
+
+#[get("/refresh_access")]
+async fn refresh_access(
+    current_user: UserDetails,
+    app_state: web::Data<AppState>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let claims = Claims {
+        sub: current_user.username,
+        exp: (chrono::Utc::now() + chrono::Duration::hours(24)).timestamp() as usize,
+    };
+    let secret = app_state.secret_key.clone();
+    let token = match encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_ref()),
+    ) {
+        Ok(token) => token,
+        Err(_) => return Err(ServiceError::InternalServerError.into()),
+    };
+
+    let access_info = AccessInfo { token };
+    Ok(HttpResponse::Found().json(access_info))
 }
 
 #[get("/me")]
@@ -257,6 +307,7 @@ pub fn configure(cfg: &mut ServiceConfig) {
         web::scope("/users")
             .service(register_user)
             .service(authenticate_user)
+            .service(refresh_access)
             .service(get_details),
     );
 }

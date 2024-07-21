@@ -4,7 +4,7 @@ use actix_web::{
     HttpResponse,
 };
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
-use microblogs::{schema, DbPool};
+use microblogs::{errors::ServiceError, schema, DbPool};
 use serde::{Deserialize, Serialize};
 
 use crate::{posts::Post, users::UserDetails};
@@ -45,27 +45,29 @@ async fn get_feed(
 ) -> Result<HttpResponse, actix_web::Error> {
     use schema::posts::dsl::*;
 
-    let results = web::block(move || {
-        let mut conn = pool.get().unwrap();
+    let returned_posts = web::block(move || {
+        let mut conn = match pool.get() {
+            Ok(conn) => conn,
+            Err(_) => return Err(ServiceError::InternalServerError),
+        };
 
-        let results: Result<Vec<Post>, diesel::result::Error> = posts
+        match posts
             .filter(deleted.eq(false))
             .select(Post::as_select())
             .offset(pagination.offset as i64)
             .limit(pagination.limit as i64)
             .order_by(created_at.desc())
-            .load::<Post>(&mut conn);
-
-        results
+            .load::<Post>(&mut conn)
+        {
+            Ok(returned_posts) => Ok(returned_posts),
+            Err(_) => return Err(ServiceError::InternalServerError),
+        }
     })
-    .await?;
+    .await??;
 
-    match results {
-        Ok(returned_posts) => Ok(HttpResponse::Ok().json(FeedRead {
-            posts: returned_posts.into_iter().map(|post| post.into()).collect(),
-        })),
-        Err(err) => Ok(HttpResponse::InternalServerError().body(err.to_string())),
-    }
+    Ok(HttpResponse::Ok().json(FeedRead {
+        posts: returned_posts.into_iter().map(|post| post.into()).collect(),
+    }))
 }
 
 pub fn configure(cfg: &mut ServiceConfig) {

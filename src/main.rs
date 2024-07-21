@@ -1,15 +1,10 @@
 use std::env;
 
-use actix_identity::IdentityMiddleware;
-use actix_session::{config::PersistentSession, storage::CookieSessionStore, SessionMiddleware};
-use actix_web::{
-    cookie::{time::Duration, Key},
-    middleware::Logger,
-    web,
-};
+use actix_web::{middleware::Logger, web};
 use diesel::{r2d2, SqliteConnection};
 use dotenvy::dotenv;
 use env_logger::Env;
+use microblogs::AppState;
 
 mod feeds;
 mod posts;
@@ -28,23 +23,13 @@ async fn main() -> Result<(), std::io::Error> {
         .build(manager)
         .expect("Failed to create pool.");
 
-    let domain_name = env::var("DOMAIN_NAME").unwrap_or("localhost".to_string());
-    let secret_key = Key::generate();
-
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(pool.clone()))
+            .app_data(web::Data::new(AppState {
+                secret_key: std::env::var("SECRET_KEY").expect("SECRET_KEY must be set"),
+            }))
             .wrap(Logger::default())
-            .wrap(IdentityMiddleware::default())
-            .wrap(
-                SessionMiddleware::builder(CookieSessionStore::default(), secret_key.clone())
-                    .session_lifecycle(PersistentSession::default().session_ttl(Duration::days(1)))
-                    .cookie_name("microblogs_session".to_string())
-                    .cookie_secure(false)
-                    .cookie_domain(Some(domain_name.clone()))
-                    .cookie_path("/".to_string())
-                    .build(),
-            )
             .configure(users::configure)
             .configure(posts::configure)
             .configure(feeds::configure)
