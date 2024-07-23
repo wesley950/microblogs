@@ -1,22 +1,28 @@
-import { useLoaderData, useNavigate } from "react-router-dom";
-import UserAvatar from "./user-avatar";
-import Interactions from "./interactions";
-import ImageCarousel from "./image-carousel";
+import { Form, useLoaderData, useNavigate } from "react-router-dom";
+import UserAvatar from "../components/user-avatar";
+import Interactions from "../components/interactions";
+import ImageCarousel from "../components/image-carousel";
+import PostCard from "../components/post-card";
 
 export async function loader({ params }) {
   let userId = Math.floor(Math.random() * 100);
 
-  let comments = [];
+  let replies = [];
 
   for (let i = 0; i < 10; i++) {
-    let commenterId = Math.floor(Math.random() * 1000);
-    comments.push({
+    let replierId = Math.floor(Math.random() * 1000);
+    replies.push({
       id: Math.floor(Math.random() * 1000),
-      text: `The standard chunk of Lorem Ipsum used since the 1500s is reproduced below for those interested. Sections 1.10.32 and 1.10.33 from "de Finibus Bonorum et Malorum" by Cicero are also reproduced in their exact original form, accompanied by English versions from the 1914 translation by H. Rackham.`,
-      likes: Math.floor(Math.random() * 1000),
-      poster: {
-        id: commenterId,
-        username: `commentador${commenterId}`,
+      body: `The standard chunk of Lorem Ipsum used since the 1500s is reproduced below for those interested. Sections 1.10.32 and 1.10.33 from "de Finibus Bonorum et Malorum" by Cicero are also reproduced in their exact original form, accompanied by English versions from the 1914 translation by H. Rackham.`,
+      likeCount: Math.floor(Math.random() * 1000),
+      replyCount: Math.floor(Math.random() * 1000),
+      imageUrls: [
+        `https://picsum.photos/seed/2${replierId}/400/500`,
+        `https://picsum.photos/seed/3${replierId}/500/400`,
+      ],
+      user: {
+        id: replierId,
+        username: `commentador${replierId}`,
         realName: "Nome Real",
       },
     });
@@ -32,10 +38,10 @@ export async function loader({ params }) {
         `https://picsum.photos/seed/3${params.postId}/500/400`,
       ],
       createdAt: new Date(),
-      likes: Math.floor(Math.random() * 1000),
-      commentCount: Math.floor(Math.random() * 1000),
-      comments,
-      poster: {
+      likeCount: Math.floor(Math.random() * 1000),
+      replyCount: Math.floor(Math.random() * 1000),
+      replies,
+      user: {
         id: userId,
         username: `user${userId}`,
         realName: "Nome Real",
@@ -62,37 +68,25 @@ export default function Post() {
           <i className="bi bi-arrow-left"></i> Voltar
         </button>
       </div>
-      <UserAvatar
-        username={post.poster.username}
-        realName={post.poster.realName}
-      />
 
-      {post.body.split("\n").map((paragraph, index) => (
-        <p key={`post-paragraph-${index}`}>{paragraph}</p>
-      ))}
+      <PostCard post={post} />
 
-      <ImageCarousel
-        postId={post.id}
-        imageUrls={post.imageUrls}
-        maxImageHeight={"1000px"}
-      />
-
-      <Interactions likes={post.likes} shareable />
-
-      <h3>Comentários ({post.commentCount})</h3>
-      {post.comments.map((comment, commendIndex) => (
-        <div
-          key={`post-${post.id}-comment-${commendIndex}`}
-          className="vstack gap-2"
-        >
-          <UserAvatar
-            username={comment.poster.username}
-            realName={comment.poster.realName}
-          />
-          <p>{comment.text}</p>
-          <Interactions likes={comment.likes} />
+      <hr />
+      <Form className="vstack gap-1">
+        <textarea className="form-control" placeholder="Escreva uma resposta" />
+        <div className="hstack d-flex justify-content-end">
+          <button type="submit" className="btn btn-primary">
+            <i className="bi bi-chat"></i> Responder
+          </button>
         </div>
-      ))}
+      </Form>
+      <hr />
+
+      {post.replies.map((reply, replyIndex) => {
+        return (
+          <PostCard key={`post-${post.id}-reply-${replyIndex}`} post={reply} />
+        );
+      })}
     </div>
   );
 }

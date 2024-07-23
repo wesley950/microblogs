@@ -4,7 +4,7 @@ import UserAvatar from "./user-avatar";
 import Interactions from "./interactions";
 import ImageCarousel from "./image-carousel";
 
-export default function PostCard({ post }) {
+export default function PostCard({ post, truncate = false }) {
   return (
     <div className="card">
       <div className="card-body">
@@ -14,23 +14,31 @@ export default function PostCard({ post }) {
             className="text-decoration-none stretched-link"
           >
             <UserAvatar
-              username={post.poster.username}
-              realName={post.poster.realName}
+              username={post.user.username}
+              realName={post.user.realName}
             />
           </Link>
           <p
             className="text-wrap overflow-hidden"
             style={{
-              maxHeight: "100px",
+              maxHeight: truncate ? "100px" : "none",
             }}
           >
             {post.body}
           </p>
 
-          <ImageCarousel postId={post.id} imageUrls={post.imageUrls} maxImageHeight={"600px"} />
+          <ImageCarousel
+            postId={post.id}
+            imageUrls={post.imageUrls}
+            maxImageHeight={"600px"}
+          />
         </div>
 
-        <Interactions likes={post.likes} comments={post.commentCount} shareable />
+        <Interactions
+          likeCount={post.likeCount}
+          replyCount={post.replyCount}
+          shareable
+        />
       </div>
     </div>
   );

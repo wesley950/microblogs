@@ -19,9 +19,9 @@ export async function loader() {
         `https://picsum.photos/seed/1${userId}/500/400`,
       ],
       createdAt: new Date(),
-      likes: Math.floor(Math.random() * 1000),
-      commentCount: Math.floor(Math.random() * 1000),
-      poster: {
+      likeCount: Math.floor(Math.random() * 1000),
+      replyCount: Math.floor(Math.random() * 1000),
+      user: {
         id: userId,
         username: `user${userId}`,
         realName: "Nome Real",

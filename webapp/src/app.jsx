@@ -13,7 +13,7 @@ import Index, { loader as indexLoader } from "./routes";
 import Post, {
   loader as postLoader,
   action as postAction,
-} from "./components/post";
+} from "./routes/post";
 
 const router = createBrowserRouter([
   {
