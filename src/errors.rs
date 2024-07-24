@@ -7,6 +7,7 @@ pub enum ServiceError {
     InternalServerError,
     Unauthorized,
     BadRequest,
+    NotFound,
 }
 
 impl Display for ServiceError {
@@ -15,6 +16,7 @@ impl Display for ServiceError {
             ServiceError::InternalServerError => write!(f, "Internal server error"),
             ServiceError::Unauthorized => write!(f, "Unauthorized"),
             ServiceError::BadRequest => write!(f, "Bad request"),
+            ServiceError::NotFound => write!(f, "Not found"),
         }
     }
 }
@@ -25,6 +27,7 @@ impl ResponseError for ServiceError {
             ServiceError::InternalServerError => HttpResponse::InternalServerError().finish(),
             ServiceError::Unauthorized => HttpResponse::Unauthorized().finish(),
             ServiceError::BadRequest => HttpResponse::BadRequest().finish(),
+            ServiceError::NotFound => HttpResponse::NotFound().finish(),
         }
     }
 }

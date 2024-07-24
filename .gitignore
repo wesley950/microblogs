@@ -1,4 +1,5 @@
 /target
+/uploads
 /src/schema.rs
 .env
 app.db

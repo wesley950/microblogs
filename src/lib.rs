@@ -10,4 +10,5 @@ pub mod schema;
 
 pub struct AppState {
     pub secret_key: String,
+    pub uploads_dir: String,
 }
