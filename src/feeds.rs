@@ -3,7 +3,7 @@ use actix_web::{
     web::{self, ServiceConfig},
     HttpResponse,
 };
-use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
+use diesel::{BoolExpressionMethods, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
 use microblogs::{errors::ServiceError, schema, DbPool};
 use serde::{Deserialize, Serialize};
 
@@ -13,6 +13,11 @@ use crate::{posts::Post, users::UserDetails};
 struct Pagination {
     offset: i32,
     limit: i32,
+}
+
+#[derive(Deserialize)]
+struct TargetPostQuery {
+    id: i32,
 }
 
 #[derive(Serialize)]
@@ -52,7 +57,7 @@ async fn get_feed(
         };
 
         match posts
-            .filter(deleted.eq(false))
+            .filter(deleted.eq(false).and(parent_id.is_null()))
             .select(Post::as_select())
             .offset(pagination.offset as i64)
             .limit(pagination.limit as i64)
@@ -70,6 +75,40 @@ async fn get_feed(
     }))
 }
 
+#[get("/replies")]
+async fn get_replies(
+    target_post: web::Query<TargetPostQuery>,
+    pagination: web::Query<Pagination>,
+    pool: web::Data<DbPool>,
+    _current_user: UserDetails,
+) -> Result<HttpResponse, actix_web::Error> {
+    use schema::posts::dsl::*;
+
+    let returned_posts = web::block(move || {
+        let mut conn = match pool.get() {
+            Ok(conn) => conn,
+            Err(_) => return Err(ServiceError::InternalServerError),
+        };
+
+        match posts
+            .filter(deleted.eq(false).and(parent_id.eq(target_post.id)))
+            .select(Post::as_select())
+            .offset(pagination.offset as i64)
+            .limit(pagination.limit as i64)
+            .order_by(created_at.asc())
+            .load::<Post>(&mut conn)
+        {
+            Ok(returned_posts) => Ok(returned_posts),
+            Err(_) => return Err(ServiceError::InternalServerError),
+        }
+    })
+    .await??;
+
+    Ok(HttpResponse::Ok().json(FeedRead {
+        posts: returned_posts.into_iter().map(|post| post.into()).collect(),
+    }))
+}
+
 pub fn configure(cfg: &mut ServiceConfig) {
-    cfg.service(web::scope("/feeds").service(get_feed));
+    cfg.service(web::scope("/feeds").service(get_feed).service(get_replies));
 }

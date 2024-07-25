@@ -12,12 +12,14 @@ use crate::users::UserDetails;
 
 #[derive(Deserialize)]
 struct PostCreate {
+    parent_id: Option<i32>,
     body: String,
 }
 
 #[derive(Insertable)]
 #[diesel(table_name = schema::posts)]
 struct NewPost<'a> {
+    pub parent_id: Option<i32>,
     pub poster_id: i32,
     pub body: &'a str,
 }
@@ -46,6 +48,7 @@ async fn create_post(
         };
 
         let new_post = NewPost {
+            parent_id: info.parent_id,
             poster_id: current_user.id,
             body: &info.body,
         };
