@@ -11,8 +11,8 @@ use argon2::{
 };
 use chrono::NaiveDateTime;
 use diesel::{
-    query_dsl::filter_dsl::FilterDsl, ExpressionMethods, Insertable, Queryable, RunQueryDsl,
-    Selectable, SelectableHelper,
+    query_dsl::filter_dsl::FilterDsl, BoolExpressionMethods, ExpressionMethods, Insertable,
+    Queryable, RunQueryDsl, Selectable, SelectableHelper,
 };
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
@@ -114,7 +114,7 @@ impl FromRequest for UserDetails {
         };
 
         let user: User = match users
-            .filter(username.eq(username_in_session))
+            .filter(username.eq(username_in_session).and(deleted.eq(false)))
             .first(&mut conn)
         {
             Ok(user) => user,
