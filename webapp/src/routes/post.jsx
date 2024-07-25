@@ -3,50 +3,55 @@ import UserAvatar from "../components/user-avatar";
 import Interactions from "../components/interactions";
 import ImageCarousel from "../components/image-carousel";
 import PostCard from "../components/post-card";
+import axios from "axios";
 
 export async function loader({ params }) {
-  let userId = Math.floor(Math.random() * 100);
+  let post = null;
 
-  let replies = [];
+  try {
+    let response = await axios.get(
+      `/feeds/replies?id=${params.postId}&offset=0&limit=20`
+    );
+    if (response.status === 200) {
+      let parentPost = response.data.parent;
+      let postReplies = response.data.replies;
 
-  for (let i = 0; i < 10; i++) {
-    let replierId = Math.floor(Math.random() * 1000);
-    replies.push({
-      id: Math.floor(Math.random() * 1000),
-      body: `The standard chunk of Lorem Ipsum used since the 1500s is reproduced below for those interested. Sections 1.10.32 and 1.10.33 from "de Finibus Bonorum et Malorum" by Cicero are also reproduced in their exact original form, accompanied by English versions from the 1914 translation by H. Rackham.`,
-      likeCount: Math.floor(Math.random() * 1000),
-      replyCount: Math.floor(Math.random() * 1000),
-      imageUrls: [
-        `https://picsum.photos/seed/2${replierId}/400/500`,
-        `https://picsum.photos/seed/3${replierId}/500/400`,
-      ],
+      post = {
+        id: parentPost.id,
+        body: parentPost.body,
+        createdAt: parentPost.created_at,
+        likeCount: parentPost.like_count,
+        replyCount: parentPost.reply_count,
+        imageUrls: [],
+        likedByMe: parentPost.liked_by_user,
+        user: {
+          id: parentPost.poster.id,
+          username: parentPost.poster.username,
+          realName: parentPost.poster.real_name,
+        },
+        replies: postReplies.map((reply) => {
+          return {
+            id: reply.id,
+            body: reply.body,
+            likeCount: reply.like_count,
+            replyCount: reply.reply_count,
+            imageUrls: [],
+            likedByMe: reply.liked_by_user,
       user: {
-        id: replierId,
-        username: `commentador${replierId}`,
-        realName: "Nome Real",
+              id: reply.poster.id,
+              username: reply.poster.username,
+              realName: reply.poster.real_name,
       },
-    });
+          };
+        }),
+      };
+    }
+  } catch (error) {
+    console.log(error);
   }
 
   return {
-    post: {
-      id: params.postId,
-      body: `Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.`,
-      imageUrls: [
-        `https://picsum.photos/seed/1${params.postId}/400/400`,
-        `https://picsum.photos/seed/2${params.postId}/400/500`,
-        `https://picsum.photos/seed/3${params.postId}/500/400`,
-      ],
-      createdAt: new Date(),
-      likeCount: Math.floor(Math.random() * 1000),
-      replyCount: Math.floor(Math.random() * 1000),
-      replies,
-      user: {
-        id: userId,
-        username: `user${userId}`,
-        realName: "Nome Real",
-      },
-    },
+    post,
   };
 }
 
