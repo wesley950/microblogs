@@ -1,7 +1,5 @@
 use actix_web::{
-    delete, post,
-    web::{self, ServiceConfig},
-    Error, HttpResponse,
+    delete, post, web::{self, ServiceConfig}, Error, HttpResponse
 };
 use chrono::NaiveDateTime;
 use diesel::{
@@ -50,6 +48,8 @@ pub struct Post {
     pub id: i32,
     pub body: String,
     pub created_at: NaiveDateTime,
+    pub reply_count: i32,
+    pub like_count: i32,
 }
 
 #[derive(Queryable, Selectable)]
