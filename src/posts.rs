@@ -1,12 +1,15 @@
 use actix_web::{
-    post,
+    delete, post,
     web::{self, ServiceConfig},
     Error, HttpResponse,
 };
 use chrono::NaiveDateTime;
-use diesel::{Insertable, Queryable, RunQueryDsl, Selectable, SelectableHelper};
+use diesel::{
+    BoolExpressionMethods, Connection, ExpressionMethods, Insertable, QueryDsl, Queryable,
+    RunQueryDsl, Selectable, SelectableHelper,
+};
 use microblogs::{errors::ServiceError, schema, DbPool};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::users::UserDetails;
 
@@ -14,6 +17,11 @@ use crate::users::UserDetails;
 struct PostCreate {
     parent_id: Option<i32>,
     body: String,
+}
+
+#[derive(Deserialize)]
+struct PostLikeQuery {
+    id: i32,
 }
 
 #[derive(Insertable)]
@@ -24,13 +32,55 @@ struct NewPost<'a> {
     pub body: &'a str,
 }
 
+#[derive(Insertable)]
+#[diesel(table_name = schema::likes)]
+struct NewLike {
+    pub user_id: i32,
+    pub post_id: i32,
+}
+
 #[derive(Queryable, Selectable)]
 #[diesel(table_name=schema::posts)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Post {
     pub id: i32,
+    pub parent_id: Option<i32>,
+    pub poster_id: i32,
     pub body: String,
     pub created_at: NaiveDateTime,
+    pub deleted: bool,
+}
+
+#[derive(Queryable, Selectable)]
+#[diesel(table_name=schema::likes)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct Like {
+    pub id: i32,
+    pub user_id: i32,
+    pub post_id: i32,
+    pub created_at: NaiveDateTime,
+    pub deleted: bool,
+}
+
+#[derive(Serialize)]
+struct LikeRead {
+    id: i32,
+    user_id: i32,
+    post_id: i32,
+    created_at: String,
+    deleted: bool,
+}
+
+impl From<Like> for LikeRead {
+    fn from(like: Like) -> Self {
+        LikeRead {
+            id: like.id,
+            user_id: like.user_id,
+            post_id: like.post_id,
+            created_at: like.created_at.to_string(),
+            deleted: like.deleted,
+        }
+    }
 }
 
 #[post("/create")]
@@ -71,6 +121,145 @@ async fn create_post(
         .finish())
 }
 
+#[post("/like")]
+async fn like_post(
+    post_like: web::Query<PostLikeQuery>,
+    pool: web::Data<DbPool>,
+    current_user: UserDetails,
+) -> Result<HttpResponse, Error> {
+    use schema::likes::dsl::{
+        deleted as like_deleted, likes, post_id as like_post_id, user_id as like_user_id,
+    };
+    use schema::posts::dsl::{deleted as post_deleted, id as post_id, posts};
+
+    let result = web::block(move || {
+        let mut conn = match pool.get() {
+            Ok(conn) => conn,
+            Err(_) => return Err(ServiceError::InternalServerError),
+        };
+
+        let like = conn.transaction::<Like, diesel::result::Error, _>(|conn| {
+            let post: Post = match posts
+                .filter(post_id.eq(post_like.id).and(post_deleted.eq(false)))
+                .first(conn)
+            {
+                Ok(post) => post,
+                Err(_) => return Err(diesel::result::Error::NotFound),
+            };
+
+            match likes
+                .filter(
+                    like_post_id
+                        .eq(post.id)
+                        .and(like_user_id.eq(current_user.id).and(like_deleted.eq(false))),
+                )
+                .first::<Like>(conn)
+            {
+                Ok(_) => {
+                    return Err(diesel::result::Error::DatabaseError(
+                        diesel::result::DatabaseErrorKind::UniqueViolation,
+                        Box::new(format!(
+                            "User {} already liked post {}",
+                            current_user.id, post.id
+                        )),
+                    ))
+                }
+                Err(_) => {
+                    let new_like = NewLike {
+                        post_id: post.id,
+                        user_id: current_user.id,
+                    };
+
+                    let like = match diesel::insert_into(likes)
+                        .values(&new_like)
+                        .returning(Like::as_returning())
+                        .get_result(conn)
+                    {
+                        Ok(like) => like,
+                        Err(_) => return Err(diesel::result::Error::RollbackTransaction),
+                    };
+
+                    Ok(like)
+                }
+            }
+        });
+
+        match like {
+            Ok(like) => Ok(like),
+            Err(_) => Err(ServiceError::BadRequest),
+        }
+    })
+    .await??;
+
+    Ok(HttpResponse::Ok().json(LikeRead::from(result)))
+}
+
+#[delete("/like")]
+async fn unlike_post(
+    post_like: web::Query<PostLikeQuery>,
+    pool: web::Data<DbPool>,
+    current_user: UserDetails,
+) -> Result<HttpResponse, Error> {
+    use schema::likes::dsl::{
+        deleted as like_deleted, id as like_id, likes, post_id as like_post_id,
+        user_id as like_user_id,
+    };
+    use schema::posts::dsl::{deleted as post_deleted, id as post_id, posts};
+
+    let result = web::block(move || {
+        let mut conn = match pool.get() {
+            Ok(conn) => conn,
+            Err(_) => return Err(ServiceError::InternalServerError),
+        };
+
+        let like = conn.transaction::<Like, diesel::result::Error, _>(|conn| {
+            let post: Post = match posts
+                .filter(post_id.eq(post_like.id).and(post_deleted.eq(false)))
+                .first(conn)
+            {
+                Ok(post) => post,
+                Err(_) => return Err(diesel::result::Error::NotFound),
+            };
+
+            match likes
+                .filter(
+                    like_post_id
+                        .eq(post.id)
+                        .and(like_user_id.eq(current_user.id).and(like_deleted.eq(false))),
+                )
+                .first::<Like>(conn)
+            {
+                Ok(like) => {
+                    let like: Like = match diesel::update(likes)
+                        .filter(like_id.eq(like.id))
+                        .set(like_deleted.eq(true))
+                        .returning(Like::as_returning())
+                        .get_result(conn)
+                    {
+                        Ok(like) => like,
+                        Err(_) => return Err(diesel::result::Error::RollbackTransaction),
+                    };
+                    Ok(like)
+                }
+                Err(_) => return Err(diesel::result::Error::NotFound),
+            }
+        });
+
+        match like {
+            Ok(like) => Ok(like),
+            Err(_) => Err(ServiceError::BadRequest),
+        }
+    })
+    .await??;
+
+    Ok(HttpResponse::Ok().json(LikeRead::from(result)))
+}
+
 pub fn configure(cfg: &mut ServiceConfig) {
-    cfg.service(web::scope("/posts").service(create_post));
+    cfg.service(
+        web::scope("/posts")
+            .service(create_post)
+            .service(like_post)
+            .service(unlike_post),
+    );
 }
