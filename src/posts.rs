@@ -8,7 +8,11 @@ use diesel::{
     BoolExpressionMethods, Connection, ExpressionMethods, Insertable, QueryDsl, Queryable,
     RunQueryDsl, Selectable, SelectableHelper,
 };
-use microblogs::{errors::ServiceError, schema, DbPool};
+use microblogs::{
+    errors::ServiceError,
+    schema::{self, posts::like_count},
+    DbPool,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::users::UserDetails;
@@ -159,18 +163,11 @@ async fn like_post(
         };
 
         let like = conn.transaction::<Like, diesel::result::Error, _>(|conn| {
-            let post: Post = match posts
-                .filter(post_id.eq(post_like.id).and(post_deleted.eq(false)))
-                .first(conn)
-            {
-                Ok(post) => post,
-                Err(_) => return Err(diesel::result::Error::NotFound),
-            };
-
+            // check if user has already liked the post
             match likes
                 .filter(
                     like_post_id
-                        .eq(post.id)
+                        .eq(post_like.id)
                         .and(like_user_id.eq(current_user.id).and(like_deleted.eq(false))),
                 )
                 .first::<Like>(conn)
@@ -180,13 +177,14 @@ async fn like_post(
                         diesel::result::DatabaseErrorKind::UniqueViolation,
                         Box::new(format!(
                             "User {} already liked post {}",
-                            current_user.id, post.id
+                            current_user.id, post_like.id
                         )),
                     ))
                 }
                 Err(_) => {
+                    // insert like
                     let new_like = NewLike {
-                        post_id: post.id,
+                        post_id: post_like.id,
                         user_id: current_user.id,
                     };
 
@@ -195,7 +193,17 @@ async fn like_post(
                         .returning(Like::as_returning())
                         .get_result(conn)
                     {
-                        Ok(like) => like,
+                        Ok(like) => {
+                            if let Err(_) = diesel::update(posts)
+                                .filter(post_id.eq(post_like.id).and(post_deleted.eq(false)))
+                                .set(like_count.eq(like_count + 1))
+                                .execute(conn)
+                            {
+                                return Err(diesel::result::Error::RollbackTransaction);
+                            }
+
+                            like
+                        }
                         Err(_) => return Err(diesel::result::Error::RollbackTransaction),
                     };
 
@@ -233,18 +241,10 @@ async fn unlike_post(
         };
 
         let like = conn.transaction::<Like, diesel::result::Error, _>(|conn| {
-            let post: Post = match posts
-                .filter(post_id.eq(post_like.id).and(post_deleted.eq(false)))
-                .first(conn)
-            {
-                Ok(post) => post,
-                Err(_) => return Err(diesel::result::Error::NotFound),
-            };
-
             match likes
                 .filter(
                     like_post_id
-                        .eq(post.id)
+                        .eq(post_like.id)
                         .and(like_user_id.eq(current_user.id).and(like_deleted.eq(false))),
                 )
                 .first::<Like>(conn)
@@ -256,7 +256,17 @@ async fn unlike_post(
                         .returning(Like::as_returning())
                         .get_result(conn)
                     {
-                        Ok(like) => like,
+                        Ok(like) => {
+                            if let Err(_) = diesel::update(posts)
+                                .filter(post_id.eq(post_like.id).and(post_deleted.eq(false)))
+                                .set(like_count.eq(like_count - 1))
+                                .execute(conn)
+                            {
+                                return Err(diesel::result::Error::RollbackTransaction);
+                            }
+
+                            like
+                        }
                         Err(_) => return Err(diesel::result::Error::RollbackTransaction),
                     };
                     Ok(like)

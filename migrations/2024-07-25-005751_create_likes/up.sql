@@ -7,3 +7,5 @@ CREATE TABLE likes (
   FOREIGN KEY(user_id) REFERENCES users(id),
   FOREIGN KEY(post_id) REFERENCES posts(id)
 );
+
+ALTER TABLE posts ADD COLUMN like_count INTEGER NOT NULL DEFAULT 0;
