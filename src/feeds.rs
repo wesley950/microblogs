@@ -3,11 +3,16 @@ use actix_web::{
     web::{self, ServiceConfig},
     HttpResponse,
 };
-use diesel::{BoolExpressionMethods, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
+use diesel::{
+    BoolExpressionMethods, ExpressionMethods, JoinOnDsl, QueryDsl, RunQueryDsl, SelectableHelper,
+};
 use microblogs::{errors::ServiceError, schema, DbPool};
 use serde::{Deserialize, Serialize};
 
-use crate::{posts::Post, users::UserDetails};
+use crate::{
+    posts::{Like, Post},
+    users::UserDetails,
+};
 
 #[derive(Deserialize)]
 struct Pagination {
@@ -25,14 +30,16 @@ struct PostRead {
     id: i32,
     body: String,
     created_at: String,
+    liked_by_user: bool,
 }
 
-impl From<Post> for PostRead {
-    fn from(post: Post) -> Self {
-        PostRead {
+impl From<(Post, Option<Like>)> for PostRead {
+    fn from((post, like): (Post, Option<Like>)) -> Self {
+        Self {
             id: post.id,
             body: post.body,
             created_at: post.created_at.to_string(),
+            liked_by_user: like.is_some(),
         }
     }
 }
@@ -46,9 +53,15 @@ struct FeedRead {
 async fn get_feed(
     pagination: web::Query<Pagination>,
     pool: web::Data<DbPool>,
-    _current_user: UserDetails,
+    current_user: UserDetails,
 ) -> Result<HttpResponse, actix_web::Error> {
-    use schema::posts::dsl::*;
+    use schema::likes::dsl::{
+        deleted as like_deleted, likes, post_id as like_post_id, user_id as like_user_id,
+    };
+    use schema::posts::dsl::{
+        created_at as post_created_at, deleted as post_deleted, id as post_id,
+        parent_id as post_parent_id, posts,
+    };
 
     let returned_posts = web::block(move || {
         let mut conn = match pool.get() {
@@ -57,12 +70,18 @@ async fn get_feed(
         };
 
         match posts
-            .filter(deleted.eq(false).and(parent_id.is_null()))
-            .select(Post::as_select())
+            .left_join(
+                likes.on(like_post_id
+                    .eq(post_id)
+                    .and(like_user_id.eq(current_user.id))
+                    .and(like_deleted.eq(false))),
+            )
+            .filter(post_deleted.eq(false).and(post_parent_id.is_null()))
+            .select((Post::as_select(), Option::<Like>::as_select()))
             .offset(pagination.offset as i64)
             .limit(pagination.limit as i64)
-            .order_by(created_at.desc())
-            .load::<Post>(&mut conn)
+            .order_by(post_created_at.desc())
+            .load::<(Post, Option<Like>)>(&mut conn)
         {
             Ok(returned_posts) => Ok(returned_posts),
             Err(_) => return Err(ServiceError::InternalServerError),
@@ -71,7 +90,10 @@ async fn get_feed(
     .await??;
 
     Ok(HttpResponse::Ok().json(FeedRead {
-        posts: returned_posts.into_iter().map(|post| post.into()).collect(),
+        posts: returned_posts
+            .into_iter()
+            .map(|(post, like)| PostRead::from((post, like)))
+            .collect(),
     }))
 }
 
@@ -80,9 +102,14 @@ async fn get_replies(
     target_post: web::Query<TargetPostQuery>,
     pagination: web::Query<Pagination>,
     pool: web::Data<DbPool>,
-    _current_user: UserDetails,
+    current_user: UserDetails,
 ) -> Result<HttpResponse, actix_web::Error> {
-    use schema::posts::dsl::*;
+    use schema::likes::dsl::{
+        deleted as like_deleted, likes, post_id as like_post_id, user_id as like_user_id,
+    };
+    use schema::posts::dsl::{
+        created_at, deleted as post_deleted, id as post_id, parent_id, posts,
+    };
 
     let returned_posts = web::block(move || {
         let mut conn = match pool.get() {
@@ -91,12 +118,18 @@ async fn get_replies(
         };
 
         match posts
-            .filter(deleted.eq(false).and(parent_id.eq(target_post.id)))
-            .select(Post::as_select())
+            .left_join(
+                likes.on(like_post_id
+                    .eq(post_id)
+                    .and(like_user_id.eq(current_user.id))
+                    .and(like_deleted.eq(false))),
+            )
+            .filter(post_deleted.eq(false).and(parent_id.eq(target_post.id)))
+            .select((Post::as_select(), Option::<Like>::as_select()))
             .offset(pagination.offset as i64)
             .limit(pagination.limit as i64)
             .order_by(created_at.asc())
-            .load::<Post>(&mut conn)
+            .load::<(Post, Option<Like>)>(&mut conn)
         {
             Ok(returned_posts) => Ok(returned_posts),
             Err(_) => return Err(ServiceError::InternalServerError),
@@ -105,7 +138,10 @@ async fn get_replies(
     .await??;
 
     Ok(HttpResponse::Ok().json(FeedRead {
-        posts: returned_posts.into_iter().map(|post| post.into()).collect(),
+        posts: returned_posts
+            .into_iter()
+            .map(|(post, like)| PostRead::from((post, like)))
+            .collect(),
     }))
 }
 
