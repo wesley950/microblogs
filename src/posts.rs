@@ -49,6 +49,7 @@ pub struct Post {
     pub body: String,
     pub created_at: NaiveDateTime,
     pub deleted: bool,
+    pub reply_count: i32,
 }
 
 #[derive(Queryable, Selectable)]
@@ -97,22 +98,41 @@ async fn create_post(
             Err(_) => return Err(ServiceError::InternalServerError),
         };
 
-        let new_post = NewPost {
-            parent_id: info.parent_id,
-            poster_id: current_user.id,
-            body: &info.body,
-        };
+        let result = conn.transaction::<Post, diesel::result::Error, _>(|conn| {
+            if let Some(target_parent_id) = info.parent_id {
+                match diesel::update(posts)
+                    .filter(id.eq(target_parent_id))
+                    .set(reply_count.eq(reply_count + 1))
+                    .returning(Post::as_returning())
+                    .get_result(conn)
+                {
+                    Ok(_) => (),
+                    Err(_) => return Err(diesel::result::Error::RollbackTransaction),
+                }
+            };
 
-        let post = match diesel::insert_into(posts)
-            .values(&new_post)
-            .returning(Post::as_returning())
-            .get_result(&mut conn)
-        {
-            Ok(post) => post,
-            Err(_) => return Err(ServiceError::InternalServerError),
-        };
+            let new_post = NewPost {
+                parent_id: info.parent_id,
+                poster_id: current_user.id,
+                body: &info.body,
+            };
 
-        Ok(post)
+            let post = match diesel::insert_into(posts)
+                .values(&new_post)
+                .returning(Post::as_returning())
+                .get_result(conn)
+            {
+                Ok(post) => post,
+                Err(_) => return Err(diesel::result::Error::RollbackTransaction),
+            };
+
+            Ok(post)
+        });
+
+        match result {
+            Ok(post) => Ok(post),
+            Err(_) => Err(ServiceError::BadRequest),
+        }
     })
     .await??;
 
