@@ -1,7 +1,6 @@
 import axios from "axios";
 import {
   Outlet,
-  redirect,
   useLoaderData,
   useLocation,
   useNavigate,

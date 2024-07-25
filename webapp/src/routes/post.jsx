@@ -1,7 +1,4 @@
 import { Form, useLoaderData, useNavigate } from "react-router-dom";
-import UserAvatar from "../components/user-avatar";
-import Interactions from "../components/interactions";
-import ImageCarousel from "../components/image-carousel";
 import PostCard from "../components/post-card";
 import axios from "axios";
 
@@ -37,11 +34,11 @@ export async function loader({ params }) {
             replyCount: reply.reply_count,
             imageUrls: [],
             likedByMe: reply.liked_by_user,
-      user: {
+            user: {
               id: reply.poster.id,
               username: reply.poster.username,
               realName: reply.poster.real_name,
-      },
+            },
           };
         }),
       };

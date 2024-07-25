@@ -1,4 +1,3 @@
-import { Carousel } from "bootstrap";
 import { Link } from "react-router-dom";
 import UserAvatar from "./user-avatar";
 import Interactions from "./interactions";
@@ -28,11 +27,11 @@ export default function PostCard({ post, truncate = false }) {
           </p>
 
           {post.imageUrls.length > 0 && (
-          <ImageCarousel
-            postId={post.id}
-            imageUrls={post.imageUrls}
-            maxImageHeight={"600px"}
-          />
+            <ImageCarousel
+              postId={post.id}
+              imageUrls={post.imageUrls}
+              maxImageHeight={"600px"}
+            />
           )}
         </div>
 
