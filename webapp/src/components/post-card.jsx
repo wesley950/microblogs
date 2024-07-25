@@ -27,11 +27,13 @@ export default function PostCard({ post, truncate = false }) {
             {post.body}
           </p>
 
+          {post.imageUrls.length > 0 && (
           <ImageCarousel
             postId={post.id}
             imageUrls={post.imageUrls}
             maxImageHeight={"600px"}
           />
+          )}
         </div>
 
         <Interactions
