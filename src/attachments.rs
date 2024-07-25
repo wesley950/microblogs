@@ -121,9 +121,8 @@ async fn upload_attachment(
             app_state.uploads_dir, attachment_uuid, saved_file_name
         );
 
-        match create_dir(format!("{}/{}", app_state.uploads_dir, attachment_uuid)) {
-            Ok(_) => {}
-            Err(_) => return Err(ServiceError::InternalServerError.into()),
+        if let Err(_) = create_dir(format!("{}/{}", app_state.uploads_dir, attachment_uuid)) {
+            return Err(ServiceError::InternalServerError.into());
         };
 
         match file.file.persist(path) {
