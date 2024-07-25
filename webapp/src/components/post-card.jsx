@@ -35,6 +35,7 @@ export default function PostCard({ post, truncate = false }) {
         </div>
 
         <Interactions
+          likedByUser={post.likedByMe}
           likeCount={post.likeCount}
           replyCount={post.replyCount}
           shareable
