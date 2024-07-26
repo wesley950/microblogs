@@ -52,7 +52,7 @@ export default function Interactions({
         <i className="bi bi-chat"></i> {replyCount} respostas
       </button>
       <button className="btn link-info btn-md">
-        <i className="bi bi-share"></i> Compartilhar
+        <i className="bi bi-share"></i> compartilhar
       </button>
     </div>
   );

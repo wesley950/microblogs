@@ -3,28 +3,43 @@ import UserAvatar from "./user-avatar";
 import Interactions from "./interactions";
 import ImageCarousel from "./image-carousel";
 
-export default function PostCard({ post, truncate = false }) {
+export default function PostCard({
+  post,
+  truncate = false,
+  linkToPost = false,
+}) {
   return (
     <div className="card">
       <div className="card-body">
         <div className="position-relative vstack gap-2">
           <Link
             to={`/post/${post.id}`}
-            className="text-decoration-none stretched-link"
+            className={`text-decoration-none ${
+              linkToPost ? "stretched-link" : ""
+            }`}
           >
             <UserAvatar
               username={post.user.username}
               realName={post.user.realName}
             />
           </Link>
-          <p
-            className="text-wrap overflow-hidden"
-            style={{
-              maxHeight: truncate ? "100px" : "none",
-            }}
-          >
-            {post.body}
-          </p>
+
+          {truncate ? (
+            <p
+              className="text-wrap overflow-hidden"
+              style={{
+                maxHeight: "100px",
+              }}
+            >
+              {post.body}
+            </p>
+          ) : (
+            post.body
+              .split("\n")
+              .map((paragraph, index) => (
+                <p key={`post-${post.id}-paragraph-${index}`}>{paragraph}</p>
+              ))
+          )}
 
           {post.imageUrls.length > 0 && (
             <ImageCarousel

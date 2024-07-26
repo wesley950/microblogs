@@ -8,6 +8,7 @@ import {
 
 import Cookies from "js-cookie";
 import { useEffect } from "react";
+import Navbar from "../components/navbar";
 
 export async function loader() {
   axios.defaults.baseURL = import.meta.env.VITE_API_BASE_ADDRESS;
@@ -54,6 +55,7 @@ export default function Root() {
 
   return (
     <>
+      <Navbar />
       <Outlet />
     </>
   );

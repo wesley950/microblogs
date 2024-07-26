@@ -105,7 +105,7 @@ export default function Post() {
     >
       <div className="hstack">
         <button className="btn link-primary" onClick={() => navigate(-1)}>
-          <i className="bi bi-arrow-left"></i> Voltar
+          <i className="bi bi-arrow-left"></i> voltar
         </button>
       </div>
 
@@ -127,11 +127,11 @@ export default function Post() {
             defaultValue=""
             placeholder=""
           />
-          <label>Escreva uma resposta...</label>
+          <label>escreva uma resposta...</label>
         </div>
         <div className="hstack d-flex justify-content-end">
           <button type="submit" className="btn btn-primary">
-            <i className="bi bi-chat"></i> Responder
+            <i className="bi bi-chat"></i> responder
           </button>
         </div>
       </fetcher.Form>

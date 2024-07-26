@@ -58,7 +58,7 @@ export default function Index() {
 
   return (
     <div
-      className="container vh-100 d-flex vstack gap-2"
+      className="container vh-100 d-flex vstack gap-2 my-2"
       style={{
         maxWidth: 400,
       }}
@@ -70,10 +70,10 @@ export default function Index() {
             name="body"
             placeholder=""
           />
-          <label>Faça uma publicação...</label>
+          <label>faça uma publicação...</label>
         </div>
         <button className="btn btn-primary" type="submit">
-          Publicar
+          <i className="bi bi-pencil"></i> publicar
         </button>
       </Form>
       <Feed posts={posts} />

@@ -5,7 +5,7 @@ export default function Feed({ posts }) {
     <div className="vstack gap-2">
       {posts.map((post) => (
         <div key={`post-card-${post.id}`}>
-          <PostCard post={post} truncate />
+          <PostCard post={post} truncate linkToPost />
         </div>
       ))}
     </div>
