@@ -9,7 +9,7 @@ import Register, {
   loader as registerLoader,
   action as registerAction,
 } from "./routes/register";
-import Index, { loader as indexLoader } from "./routes";
+import Index, { loader as indexLoader, action as indexAction } from "./routes";
 import Post, {
   loader as postLoader,
   action as postAction,
@@ -26,6 +26,7 @@ const router = createBrowserRouter([
         index: true,
         element: <Index />,
         loader: indexLoader,
+        action: indexAction,
       },
       {
         path: "post/:postId",

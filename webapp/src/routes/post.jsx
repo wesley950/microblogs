@@ -1,6 +1,13 @@
-import { Form, useLoaderData, useNavigate } from "react-router-dom";
+import {
+  useFetcher,
+  useLoaderData,
+  useNavigate,
+  useNavigation,
+} from "react-router-dom";
 import PostCard from "../components/post-card";
 import axios from "axios";
+import AutoResizableTextarea from "../components/auto-resizable-textarea";
+import { useEffect, useRef } from "react";
 
 export async function loader({ params }) {
   let post = null;
@@ -52,11 +59,42 @@ export async function loader({ params }) {
   };
 }
 
-export async function action({ request, params }) {}
+export async function action({ request, params }) {
+  let formData = await request.formData();
+  let data = JSON.stringify({
+    parent_id: parseInt(params.postId),
+    body: formData.get("reply"),
+  });
+
+  try {
+    let response = await axios.post(`/posts/create`, data);
+    if (response.status === 200) {
+      let newReply = response.data;
+      return { newReply };
+    }
+  } catch (error) {
+    console.log(error);
+  }
+
+  return null;
+}
 
 export default function Post() {
   const { post } = useLoaderData();
+  const fetcher = useFetcher();
   const navigate = useNavigate();
+  const navigation = useNavigation();
+  const formRef = useRef(null);
+
+  useEffect(() => {
+    if (
+      navigation.state === "idle" &&
+      fetcher.state === "idle" &&
+      formRef.current
+    ) {
+      formRef.current.reset();
+    }
+  }, [navigation.state, fetcher.state]);
 
   return (
     <div
@@ -74,14 +112,29 @@ export default function Post() {
       <PostCard post={post} />
 
       <hr />
-      <Form className="vstack gap-1">
-        <textarea className="form-control" placeholder="Escreva uma resposta" />
+      <fetcher.Form method="post" className="vstack gap-1" ref={formRef}>
+        <div className="form-floating">
+          <input
+            type="number"
+            name="parentId"
+            value={post.id}
+            readOnly
+            hidden
+          />
+          <AutoResizableTextarea
+            className="form-control"
+            name="reply"
+            defaultValue=""
+            placeholder=""
+          />
+          <label>Escreva uma resposta...</label>
+        </div>
         <div className="hstack d-flex justify-content-end">
           <button type="submit" className="btn btn-primary">
             <i className="bi bi-chat"></i> Responder
           </button>
         </div>
-      </Form>
+      </fetcher.Form>
       <hr />
 
       {post.replies.map((reply, replyIndex) => {
