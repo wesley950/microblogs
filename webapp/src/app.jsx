@@ -14,6 +14,7 @@ import Post, {
   loader as postLoader,
   action as postAction,
 } from "./routes/post";
+import { likeAction, unlikeAction } from "./components/interactions";
 
 const router = createBrowserRouter([
   {
@@ -33,6 +34,14 @@ const router = createBrowserRouter([
         element: <Post />,
         loader: postLoader,
         action: postAction,
+      },
+      {
+        path: "post/:postId/like",
+        action: likeAction,
+      },
+      {
+        path: "post/:postId/unlike",
+        action: unlikeAction,
       },
       {
         path: "/entrar",
