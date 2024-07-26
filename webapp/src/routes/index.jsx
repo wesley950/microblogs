@@ -1,6 +1,7 @@
-import { useLoaderData } from "react-router-dom";
+import { Form, redirect, useLoaderData } from "react-router-dom";
 import Feed from "../components/feed";
 import axios from "axios";
+import AutoResizableTextarea from "../components/auto-resizable-textarea";
 
 export async function loader() {
   let posts = [];
@@ -34,6 +35,24 @@ export async function loader() {
   };
 }
 
+export async function action({ request }) {
+  const formData = await request.formData();
+  const data = JSON.stringify({
+    body: formData.get("body"),
+  });
+
+  try {
+    let response = await axios.post("/posts/create", data);
+    if (response.status === 200) {
+      return redirect(`/post/${response.data.id}`);
+    }
+  } catch (error) {
+    console.log(error);
+  }
+
+  return null;
+}
+
 export default function Index() {
   const { posts } = useLoaderData();
 
@@ -44,7 +63,19 @@ export default function Index() {
         maxWidth: 400,
       }}
     >
-      <h1>Publicações no Microblogs</h1>
+      <Form method="post" className="vstack gap-1">
+        <div className="form-floating">
+          <AutoResizableTextarea
+            className="form-control"
+            name="body"
+            placeholder=""
+          />
+          <label>Faça uma publicação...</label>
+        </div>
+        <button className="btn btn-primary" type="submit">
+          Publicar
+        </button>
+      </Form>
       <Feed posts={posts} />
     </div>
   );

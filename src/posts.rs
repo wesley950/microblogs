@@ -64,6 +64,17 @@ pub struct Like {
 }
 
 #[derive(Serialize)]
+struct PostRead {
+    id: i32,
+}
+
+impl From<Post> for PostRead {
+    fn from(post: Post) -> Self {
+        Self { id: post.id }
+    }
+}
+
+#[derive(Serialize)]
 struct LikeRead {
     id: i32,
     user_id: i32,
@@ -135,9 +146,7 @@ async fn create_post(
     })
     .await??;
 
-    Ok(HttpResponse::Created()
-        .append_header(("Location", format!("/posts/{}", post.id)))
-        .finish())
+    Ok(HttpResponse::Ok().json(PostRead::from(post)))
 }
 
 #[post("/like")]
