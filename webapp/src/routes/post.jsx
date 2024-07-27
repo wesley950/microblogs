@@ -85,7 +85,7 @@ export default function Post() {
 
   useEffect(() => {
     loadPost(postId, 0, PAGE_SIZE).then((newPost) => setPost(newPost));
-  }, []);
+  }, [postId]);
 
   useEffect(() => {
     if (fetcher.data) {
@@ -180,6 +180,7 @@ export default function Post() {
               <PostCard
                 key={`post-${post.id}-reply-${replyIndex}`}
                 post={reply}
+                linkToPost
               />
             );
           })}
