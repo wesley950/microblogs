@@ -174,6 +174,7 @@ async fn download_attachment(
     attachment_uuid: web::Path<String>,
     app_state: web::Data<AppState>,
     pool: web::Data<DbPool>,
+    _current_user: UserDetails,
 ) -> Result<NamedFile, actix_web::Error> {
     use schema::attachments::dsl::*;
 

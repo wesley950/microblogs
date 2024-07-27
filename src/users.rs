@@ -82,24 +82,37 @@ impl FromRequest for UserDetails {
             None => return ready(Err(ServiceError::InternalServerError.into())),
         };
 
-        let authorization_header = match req.headers().get("Authorization") {
-            Some(header) => header,
-            None => return ready(Err(ServiceError::Unauthorized.into())),
-        };
+        let access_token = match req.headers().get("Authorization") {
+            // first, try from authorization header
+            Some(header) => {
+                let header_str = match header.to_str() {
+                    Ok(header) => header,
+                    Err(_) => return ready(Err(ServiceError::InternalServerError.into())),
+                };
 
-        let authorization_header = match authorization_header.to_str() {
-            Ok(header) => header,
-            Err(_) => return ready(Err(ServiceError::InternalServerError.into())),
-        };
+                let bearer_token = match header_str.strip_prefix("Bearer ") {
+                    Some(token) => token.to_string(),
+                    None => return ready(Err(ServiceError::InternalServerError.into())),
+                };
 
-        let bearer_token = match authorization_header.strip_prefix("Bearer ") {
-            Some(token) => token,
-            None => return ready(Err(ServiceError::InternalServerError.into())),
+                bearer_token
+            }
+
+            // second, try from cookies
+            None => {
+                let access_token_cookie = req.cookie("accessToken");
+                let access_token = match access_token_cookie {
+                    Some(cookie) => cookie.value().to_owned(),
+                    None => return ready(Err(ServiceError::Unauthorized.into())),
+                };
+
+                access_token
+            }
         };
 
         let secret = app_state.secret_key.clone();
         let token_data = match decode::<Claims>(
-            bearer_token,
+            &access_token,
             &DecodingKey::from_secret(secret.as_ref()),
             &Validation::default(),
         ) {
