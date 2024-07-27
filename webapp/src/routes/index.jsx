@@ -2,14 +2,15 @@ import { Form, redirect, useLoaderData } from "react-router-dom";
 import Feed from "../components/feed";
 import axios from "axios";
 import AutoResizableTextarea from "../components/auto-resizable-textarea";
+import { useEffect, useState } from "react";
 
-export async function loader() {
-  let posts = [];
+const PAGE_SIZE = 5;
 
+async function loadPosts(offset, limit) {
   try {
-    let response = await axios.get("/feeds/?offset=0&limit=10");
+    let response = await axios.get(`/feeds/?offset=${offset}&limit=${limit}`);
     if (response.status === 200) {
-      posts = response.data.posts.map((post) => {
+      return response.data.posts.map((post) => {
         return {
           id: post.id,
           body: post.body,
@@ -30,9 +31,7 @@ export async function loader() {
     console.log(error);
   }
 
-  return {
-    posts,
-  };
+  return [];
 }
 
 export async function action({ request }) {
@@ -54,7 +53,29 @@ export async function action({ request }) {
 }
 
 export default function Index() {
-  const { posts } = useLoaderData();
+  const [posts, setPosts] = useState([]);
+
+  useEffect(() => {
+    loadPosts(0, PAGE_SIZE).then((posts) => setPosts(posts));
+  }, []);
+
+  useEffect(() => {
+    let handler = () => {
+      if (
+        window.scrollY / (document.body.scrollHeight - window.innerHeight) >
+        0.8
+      ) {
+        let loadMorePosts = async () => {
+          let newPosts = await loadPosts(posts.length, PAGE_SIZE);
+          setPosts((posts) => posts.concat(newPosts));
+        };
+        loadMorePosts();
+      }
+    };
+    window.addEventListener("scrollend", handler);
+
+    return () => window.removeEventListener("scrollend", handler);
+  }, [posts]);
 
   return (
     <div

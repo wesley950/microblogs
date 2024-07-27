@@ -1,26 +1,26 @@
 import {
   useFetcher,
-  useLoaderData,
   useNavigate,
   useNavigation,
+  useParams,
 } from "react-router-dom";
 import PostCard from "../components/post-card";
 import axios from "axios";
 import AutoResizableTextarea from "../components/auto-resizable-textarea";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
-export async function loader({ params }) {
-  let post = null;
+const PAGE_SIZE = 5;
 
+async function loadPost(postId, repliesOffset, repliesLimit) {
   try {
     let response = await axios.get(
-      `/feeds/replies?id=${params.postId}&offset=0&limit=20`
+      `/feeds/replies?id=${postId}&offset=${repliesOffset}&limit=${repliesLimit}`
     );
     if (response.status === 200) {
       let parentPost = response.data.parent;
       let postReplies = response.data.replies;
 
-      post = {
+      return {
         id: parentPost.id,
         body: parentPost.body,
         createdAt: parentPost.created_at,
@@ -54,9 +54,7 @@ export async function loader({ params }) {
     console.log(error);
   }
 
-  return {
-    post,
-  };
+  return null;
 }
 
 export async function action({ request, params }) {
@@ -80,11 +78,53 @@ export async function action({ request, params }) {
 }
 
 export default function Post() {
-  const { post } = useLoaderData();
+  const [post, setPost] = useState(null);
   const fetcher = useFetcher();
+  const { postId } = useParams();
   const navigate = useNavigate();
   const navigation = useNavigation();
   const formRef = useRef(null);
+
+  useEffect(() => {
+    loadPost(postId, 0, PAGE_SIZE).then((newPost) => setPost(newPost));
+  }, []);
+
+  useEffect(() => {
+    if (fetcher.data) {
+      let fetchReplyData = async () => {
+        let replyData = await loadPost(fetcher.data.newReply.id, 0, 0);
+        setPost((post) => {
+          return {
+            ...post,
+            replies: [replyData, ...post.replies],
+          };
+        });
+      };
+
+      fetchReplyData();
+    }
+  }, [fetcher.data]);
+
+  useEffect(() => {
+    let handler = () => {
+      if (
+        window.scrollY / (document.body.scrollHeight - window.innerHeight) >
+        0.8
+      ) {
+        let reloadPost = async () => {
+          let newPost = await loadPost(postId, post.replies.length, PAGE_SIZE);
+          setPost((post) => ({
+            ...post,
+            replies: post.replies.concat(newPost.replies),
+          }));
+        };
+        reloadPost();
+      }
+    };
+    window.addEventListener("scrollend", handler);
+
+    return () => window.removeEventListener("scrollend", handler);
+  }, [post?.replies]);
 
   useEffect(() => {
     if (
@@ -109,39 +149,46 @@ export default function Post() {
         </button>
       </div>
 
-      <PostCard post={post} />
+      {post && (
+        <>
+          <PostCard post={post} />
 
-      <hr />
-      <fetcher.Form method="post" className="vstack gap-1" ref={formRef}>
-        <div className="form-floating">
-          <input
-            type="number"
-            name="parentId"
-            value={post.id}
-            readOnly
-            hidden
-          />
-          <AutoResizableTextarea
-            className="form-control"
-            name="reply"
-            defaultValue=""
-            placeholder=""
-          />
-          <label>escreva uma resposta...</label>
-        </div>
-        <div className="hstack d-flex justify-content-end">
-          <button type="submit" className="btn btn-primary">
-            <i className="bi bi-chat"></i> responder
-          </button>
-        </div>
-      </fetcher.Form>
-      <hr />
+          <hr />
+          <fetcher.Form method="post" className="vstack gap-1" ref={formRef}>
+            <div className="form-floating">
+              <input
+                type="number"
+                name="parentId"
+                value={post.id}
+                readOnly
+                hidden
+              />
+              <AutoResizableTextarea
+                className="form-control"
+                name="reply"
+                defaultValue=""
+                placeholder=""
+              />
+              <label>escreva uma resposta...</label>
+            </div>
+            <div className="hstack d-flex justify-content-end">
+              <button type="submit" className="btn btn-primary">
+                <i className="bi bi-chat"></i> responder
+              </button>
+            </div>
+          </fetcher.Form>
+          <hr />
 
-      {post.replies.map((reply, replyIndex) => {
-        return (
-          <PostCard key={`post-${post.id}-reply-${replyIndex}`} post={reply} />
-        );
-      })}
+          {post.replies.map((reply, replyIndex) => {
+            return (
+              <PostCard
+                key={`post-${post.id}-reply-${replyIndex}`}
+                post={reply}
+              />
+            );
+          })}
+        </>
+      )}
     </div>
   );
 }

@@ -9,12 +9,9 @@ import Register, {
   loader as registerLoader,
   action as registerAction,
 } from "./routes/register";
-import Index, { loader as indexLoader, action as indexAction } from "./routes";
-import Post, {
-  loader as postLoader,
-  action as postAction,
-} from "./routes/post";
-import { likeAction, unlikeAction } from "./components/interactions";
+import Index, { action as indexAction } from "./routes";
+import Post, { action as postAction } from "./routes/post";
+import { likeAction } from "./components/interactions";
 
 const router = createBrowserRouter([
   {
@@ -26,22 +23,16 @@ const router = createBrowserRouter([
       {
         index: true,
         element: <Index />,
-        loader: indexLoader,
         action: indexAction,
       },
       {
         path: "post/:postId",
         element: <Post />,
-        loader: postLoader,
         action: postAction,
       },
       {
         path: "post/:postId/like",
         action: likeAction,
-      },
-      {
-        path: "post/:postId/unlike",
-        action: unlikeAction,
       },
       {
         path: "/entrar",
