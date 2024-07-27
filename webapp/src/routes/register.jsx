@@ -44,53 +44,53 @@ export default function Register() {
   return (
     <div className="container vh-100 d-flex justify-content-center align-items-center">
       <Form method="post" className="vstack gap-2 my-auto">
-        <h3>Registrar-se no Microblogs</h3>
+        <h3>criar conta</h3>
         <input
           type="text"
           name="username"
           id="username"
-          placeholder="Nome da conta"
+          placeholder="apelido"
           className="form-control"
         />
         <input
           type="email"
           name="email"
           id="email"
-          placeholder="Email"
+          placeholder="email"
           className="form-control"
         />
         <input
           type="text"
           name="real_name"
           id="real_name"
-          placeholder="Nome real"
+          placeholder="nome"
           className="form-control"
         />
         <textarea
           name="summary"
           id="summary"
-          placeholder="Breve resumo (Opcional)"
+          placeholder="breve resumo (opcional)"
           className="form-control"
         />
         <input
           type="password"
           name="password"
           id="password"
-          placeholder="Senha"
+          placeholder="senha"
           className="form-control"
         />
         <input
           type="password"
           name="password_confirmation"
           id="password_confirmation"
-          placeholder="Confirme sua senha"
+          placeholder="confirmação da senha"
           className="form-control"
         />
         <button type="submit" className="btn btn-primary">
-          Registrar
+          registrar
         </button>
         <p className="text-muted text-center">
-          Já possui uma conta? Entre <Link to="/entrar">aqui</Link>.
+          já possui uma conta? entre <Link to="/entrar">aqui</Link>.
         </p>
       </Form>
     </div>

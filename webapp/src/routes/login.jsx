@@ -40,26 +40,26 @@ export default function Login() {
   return (
     <div className="container vh-100 d-flex justify-content-center align-items-center">
       <Form method="post" className="vstack gap-2 my-auto">
-        <h3>Entrar no Microblogs</h3>
+        <h3>entrar no microblogs</h3>
         <input
           type="text"
           name="username"
           id="username"
-          placeholder="Nome da conta"
+          placeholder="apelido"
           className="form-control"
         />
         <input
           type="password"
           name="password"
           id="password"
-          placeholder="Senha"
+          placeholder="senha"
           className="form-control"
         />
         <button type="submit" className="btn btn-primary">
-          Entrar
+          entrar
         </button>
         <p className="text-muted text-center">
-          Ainda não tem uma conta? Registre-se <Link to="/registrar">aqui</Link>
+          ainda não tem uma conta? registre-se <Link to="/registrar">aqui</Link>
           .
         </p>
       </Form>
