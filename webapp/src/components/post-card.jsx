@@ -2,16 +2,7 @@ import { Link } from "react-router-dom";
 import UserAvatar from "./user-avatar";
 import Interactions from "./interactions";
 import MediaCarousel from "./media-carousel";
-
-const URL_REGEX = /https?:\/\/[^\s]+/g;
-
-function parseBody(body) {
-  let mediaUrls = body.match(URL_REGEX) || [];
-  return {
-    paragraphs: body.split("\n").map((paragraph) => paragraph.trim()),
-    mediaUrls,
-  };
-}
+import { parseBody } from "../utils/media";
 
 export default function PostCard({
   post,

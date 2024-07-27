@@ -6,8 +6,8 @@ import {
 } from "react-router-dom";
 import PostCard from "../components/post-card";
 import axios from "axios";
-import AutoResizableTextarea from "../components/auto-resizable-textarea";
 import { useEffect, useRef, useState } from "react";
+import PostBodyTextarea from "../components/post-body-textarea";
 
 const PAGE_SIZE = 5;
 
@@ -161,13 +161,11 @@ export default function Post() {
                 readOnly
                 hidden
               />
-              <AutoResizableTextarea
-                className="form-control"
+              <PostBodyTextarea
+                id="replyTextarea"
                 name="reply"
-                defaultValue=""
-                placeholder=""
+                placeholder={"escreva uma resposta..."}
               />
-              <label>escreva uma resposta...</label>
             </div>
             <div className="hstack d-flex justify-content-end">
               <button type="submit" className="btn btn-primary">

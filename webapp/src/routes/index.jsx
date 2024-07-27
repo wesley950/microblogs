@@ -1,8 +1,8 @@
 import { Form, redirect, useLoaderData } from "react-router-dom";
 import Feed from "../components/feed";
 import axios from "axios";
-import AutoResizableTextarea from "../components/auto-resizable-textarea";
 import { useEffect, useState } from "react";
+import PostBodyTextarea from "../components/post-body-textarea";
 
 const PAGE_SIZE = 5;
 
@@ -84,14 +84,7 @@ export default function Index() {
       }}
     >
       <Form method="post" className="vstack gap-1">
-        <div className="form-floating">
-          <AutoResizableTextarea
-            className="form-control"
-            name="body"
-            placeholder=""
-          />
-          <label>faça uma publicação...</label>
-        </div>
+        <PostBodyTextarea placeholder={"faça uma publicação..."} />
         <button className="btn btn-primary" type="submit">
           <i className="bi bi-pencil"></i> publicar
         </button>
