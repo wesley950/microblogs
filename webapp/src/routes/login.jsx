@@ -2,6 +2,7 @@ import axios from "axios";
 import { Form, Link, redirect } from "react-router-dom";
 
 import Cookies from "js-cookie";
+import { storeAuthToken } from "../utils/cookies";
 
 export async function loader() {
   let accessToken = Cookies.get("accessToken");
@@ -22,10 +23,7 @@ export async function action({ request }) {
   try {
     let res = await axios.post("/users/login", data);
     if (res.status === 200) {
-      Cookies.set("accessToken", res.data.token);
-      axios.defaults.headers.common[
-        "Authorization"
-      ] = `Bearer ${res.data.token}`;
+      storeAuthToken(res.data.token);
       return redirect("/");
     }
   } catch (error) {

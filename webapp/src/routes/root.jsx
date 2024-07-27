@@ -5,10 +5,11 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
+import { useEffect } from "react";
 
 import Cookies from "js-cookie";
-import { useEffect } from "react";
 import Navbar from "../components/navbar";
+import { storeAuthToken } from "../utils/cookies";
 
 export async function loader() {
   axios.defaults.baseURL = import.meta.env.VITE_API_BASE_ADDRESS;
@@ -20,10 +21,7 @@ export async function loader() {
     try {
       let res = await axios.get("/users/refresh_access");
       if (res.status === 200) {
-        Cookies.set("accessToken", res.data.token);
-        axios.defaults.headers.common[
-          "Authorization"
-        ] = `Bearer ${res.data.token}`;
+        storeAuthToken(res.data.token);
         return {
           isLogged: true,
         };
