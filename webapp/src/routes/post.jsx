@@ -26,7 +26,6 @@ async function loadPost(postId, repliesOffset, repliesLimit) {
         createdAt: parentPost.created_at,
         likeCount: parentPost.like_count,
         replyCount: parentPost.reply_count,
-        imageUrls: [],
         likedByMe: parentPost.liked_by_user,
         user: {
           id: parentPost.poster.id,
@@ -39,7 +38,6 @@ async function loadPost(postId, repliesOffset, repliesLimit) {
             body: reply.body,
             likeCount: reply.like_count,
             replyCount: reply.reply_count,
-            imageUrls: [],
             likedByMe: reply.liked_by_user,
             user: {
               id: reply.poster.id,

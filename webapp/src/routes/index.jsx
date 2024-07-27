@@ -14,7 +14,6 @@ async function loadPosts(offset, limit) {
         return {
           id: post.id,
           body: post.body,
-          imageUrls: [],
           createdAt: post.created_at,
           likeCount: post.like_count,
           replyCount: post.reply_count,
