@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { parseBody } from "../utils/media";
-import AutoResizableTextarea from "./auto-resizable-textarea";
 
 export default function PostBodyTextarea({ placeholder, name = "body" }) {
   const [previewMediaUrls, setPreviewMediaUrls] = useState([]);
@@ -15,7 +14,7 @@ export default function PostBodyTextarea({ placeholder, name = "body" }) {
   return (
     <>
       <div className="form-floating">
-        <AutoResizableTextarea
+        <textarea
           className="form-control"
           name={name}
           ref={ref}
@@ -25,6 +24,7 @@ export default function PostBodyTextarea({ placeholder, name = "body" }) {
             const { mediaUrls } = parseBody(text);
             setPreviewMediaUrls(mediaUrls);
           }}
+          rows={4}
         />
         <label>{placeholder}</label>
       </div>
