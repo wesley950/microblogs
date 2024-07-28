@@ -1,10 +1,10 @@
 import { Carousel } from "bootstrap";
 
-export default function MediaCarousel({ postId, mediaUrls, maxImageHeight }) {
+export default function MediaCarousel({ postUuid, mediaUrls, maxImageHeight }) {
   return (
     <div
       className="carousel slide mb-2"
-      id={`post-card-images-carousel-${postId}`}
+      id={`post-card-images-carousel-${postUuid}`}
     >
       <div className="carousel-inner">
         {mediaUrls.map((imageUrl, index) => (
@@ -30,7 +30,7 @@ export default function MediaCarousel({ postId, mediaUrls, maxImageHeight }) {
             className="carousel-control-prev"
             type="button"
             data-bs-slide="prev"
-            data-bs-target={`#post-card-images-carousel-${postId}`}
+            data-bs-target={`#post-card-images-carousel-${postUuid}`}
           >
             <span className="carousel-control-prev-icon" />
             <span className="visually-hidden">Anterior</span>
@@ -39,7 +39,7 @@ export default function MediaCarousel({ postId, mediaUrls, maxImageHeight }) {
             className="carousel-control-next"
             type="button"
             data-bs-slide="next"
-            data-bs-target={`#post-card-images-carousel-${postId}`}
+            data-bs-target={`#post-card-images-carousel-${postUuid}`}
           >
             <span className="carousel-control-next-icon" />
             <span className="visually-hidden">Próximo</span>

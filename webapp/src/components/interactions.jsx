@@ -7,9 +7,9 @@ export async function likeAction({ request, params }) {
     let formData = await request.formData();
     let response = null;
     if (formData.get("like") === "true") {
-      response = await axios.post("/posts/like?id=" + params.postId);
+      response = await axios.post("/posts/like?uuid=" + params.postUuid);
     } else {
-      response = await axios.delete("/posts/like?id=" + params.postId);
+      response = await axios.delete("/posts/like?uuid=" + params.postUuid);
     }
     if (response.status === 200) {
       return response.data;
@@ -21,7 +21,7 @@ export async function likeAction({ request, params }) {
 }
 
 export default function Interactions({
-  postId,
+  postUuid,
   likedByUser,
   likeCount,
   replyCount,
@@ -40,7 +40,7 @@ export default function Interactions({
 
   return (
     <div className="hstack gap-2 justify-content-evenly text-center">
-      <fetcher.Form method="post" action={`/post/${postId}/like`}>
+      <fetcher.Form method="post" action={`/post/${postUuid}/like`}>
         <button
           className="btn link-danger btn-md"
           name="like"

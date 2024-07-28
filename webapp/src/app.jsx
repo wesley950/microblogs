@@ -26,12 +26,12 @@ const router = createBrowserRouter([
         action: indexAction,
       },
       {
-        path: "post/:postId",
+        path: "post/:postUuid",
         element: <Post />,
         action: postAction,
       },
       {
-        path: "post/:postId/like",
+        path: "post/:postUuid/like",
         action: likeAction,
       },
       {

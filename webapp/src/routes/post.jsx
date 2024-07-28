@@ -11,36 +11,34 @@ import PostBodyTextarea from "../components/post-body-textarea";
 
 const PAGE_SIZE = 5;
 
-async function loadPost(postId, repliesOffset, repliesLimit) {
+async function loadPost(postUuid, repliesOffset, repliesLimit) {
   try {
     let response = await axios.get(
-      `/feeds/replies?id=${postId}&offset=${repliesOffset}&limit=${repliesLimit}`
+      `/feeds/replies?uuid=${postUuid}&offset=${repliesOffset}&limit=${repliesLimit}`
     );
     if (response.status === 200) {
       let parentPost = response.data.parent;
       let postReplies = response.data.replies;
 
       return {
-        id: parentPost.id,
+        uuid: parentPost.uuid,
         body: parentPost.body,
         createdAt: parentPost.created_at,
         likeCount: parentPost.like_count,
         replyCount: parentPost.reply_count,
         likedByMe: parentPost.liked_by_user,
         user: {
-          id: parentPost.poster.id,
           username: parentPost.poster.username,
           realName: parentPost.poster.real_name,
         },
         replies: postReplies.map((reply) => {
           return {
-            id: reply.id,
+            uuid: reply.uuid,
             body: reply.body,
             likeCount: reply.like_count,
             replyCount: reply.reply_count,
             likedByMe: reply.liked_by_user,
             user: {
-              id: reply.poster.id,
               username: reply.poster.username,
               realName: reply.poster.real_name,
             },
@@ -58,7 +56,7 @@ async function loadPost(postId, repliesOffset, repliesLimit) {
 export async function action({ request, params }) {
   let formData = await request.formData();
   let data = JSON.stringify({
-    parent_id: parseInt(params.postId),
+    parent_uuid: params.postUuid,
     body: formData.get("reply"),
   });
 
@@ -78,19 +76,21 @@ export async function action({ request, params }) {
 export default function Post() {
   const [post, setPost] = useState(null);
   const fetcher = useFetcher();
-  const { postId } = useParams();
+  const { postUuid } = useParams();
   const navigate = useNavigate();
   const navigation = useNavigation();
   const formRef = useRef(null);
 
   useEffect(() => {
-    loadPost(postId, 0, PAGE_SIZE).then((newPost) => setPost(newPost));
-  }, [postId]);
+    loadPost(postUuid, 0, PAGE_SIZE).then((newPost) => {
+      setPost(newPost);
+    });
+  }, [postUuid]);
 
   useEffect(() => {
     if (fetcher.data) {
       let fetchReplyData = async () => {
-        let replyData = await loadPost(fetcher.data.newReply.id, 0, 0);
+        let replyData = await loadPost(fetcher.data.newReply.uuid, 0, 0);
         setPost((post) => {
           return {
             ...post,
@@ -110,7 +110,11 @@ export default function Post() {
         0.8
       ) {
         let reloadPost = async () => {
-          let newPost = await loadPost(postId, post.replies.length, PAGE_SIZE);
+          let newPost = await loadPost(
+            postUuid,
+            post.replies.length,
+            PAGE_SIZE
+          );
           setPost((post) => ({
             ...post,
             replies: post.replies.concat(newPost.replies),
@@ -157,7 +161,7 @@ export default function Post() {
               <input
                 type="number"
                 name="parentId"
-                value={post.id}
+                value={post.uuid}
                 readOnly
                 hidden
               />
@@ -178,7 +182,7 @@ export default function Post() {
           {post.replies.map((reply, replyIndex) => {
             return (
               <PostCard
-                key={`post-${post.id}-reply-${replyIndex}`}
+                key={`post-${post.uuid}-reply-${replyIndex}`}
                 post={reply}
                 linkToPost
               />

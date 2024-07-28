@@ -1,9 +1,9 @@
-import { Form, redirect, useLoaderData } from "react-router-dom";
+import { Form, redirect } from "react-router-dom";
 import Feed from "../components/feed";
 import axios from "axios";
 import { useEffect, useState } from "react";
-import PostBodyTextarea from "../components/post-body-textarea";
 
+import PostBodyTextarea from "../components/post-body-textarea";
 const PAGE_SIZE = 5;
 
 async function loadPosts(offset, limit) {
@@ -12,14 +12,13 @@ async function loadPosts(offset, limit) {
     if (response.status === 200) {
       return response.data.posts.map((post) => {
         return {
-          id: post.id,
+          uuid: post.uuid,
           body: post.body,
           createdAt: post.created_at,
           likeCount: post.like_count,
           replyCount: post.reply_count,
           likedByMe: post.liked_by_user,
           user: {
-            id: post.poster.id,
             username: post.poster.username,
             realName: post.poster.real_name,
           },
@@ -42,7 +41,7 @@ export async function action({ request }) {
   try {
     let response = await axios.post("/posts/create", data);
     if (response.status === 200) {
-      return redirect(`/post/${response.data.id}`);
+      return redirect(`/post/${response.data.uuid}`);
     }
   } catch (error) {
     console.log(error);

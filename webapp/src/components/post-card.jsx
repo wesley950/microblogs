@@ -16,7 +16,7 @@ export default function PostCard({
       <div className="card-body">
         <div className="position-relative vstack gap-2">
           <Link
-            to={`/post/${post.id}`}
+            to={`/post/${post.uuid}`}
             className={`text-decoration-none ${
               linkToPost ? "stretched-link" : ""
             }`}
@@ -38,13 +38,13 @@ export default function PostCard({
             </p>
           ) : (
             paragraphs.map((paragraph, index) => (
-              <p key={`post-${post.id}-paragraph-${index}`}>{paragraph}</p>
+              <p key={`post-${post.uuid}-paragraph-${index}`}>{paragraph}</p>
             ))
           )}
 
           {mediaUrls.length > 0 && (
             <MediaCarousel
-              postId={post.id}
+              postUuid={post.uuid}
               mediaUrls={mediaUrls}
               maxImageHeight={"600px"}
             />
@@ -52,7 +52,7 @@ export default function PostCard({
         </div>
 
         <Interactions
-          postId={post.id}
+          postUuid={post.uuid}
           likedByUser={post.likedByMe}
           likeCount={post.likeCount}
           replyCount={post.replyCount}
