@@ -1,5 +1,6 @@
 import {
   useFetcher,
+  useLoaderData,
   useNavigate,
   useNavigation,
   useParams,
@@ -9,48 +10,54 @@ import axios from "axios";
 import { useEffect, useRef, useState } from "react";
 import PostBodyTextarea from "../components/post-body-textarea";
 
-const PAGE_SIZE = 5;
+function parsePost(post) {
+  return {
+    uuid: post.uuid,
+    body: post.body,
+    createdAt: new Date(post.created_at),
+    likeCount: post.like_count,
+    replyCount: post.reply_count,
+    likedByMe: post.liked_by_user,
+    user: {
+      username: post.poster.username,
+      realName: post.poster.real_name,
+    },
+  };
+}
 
-async function loadPost(postUuid, repliesOffset, repliesLimit) {
+async function loadPost(postUuid) {
   try {
-    let response = await axios.get(
-      `/feeds/replies?uuid=${postUuid}&offset=${repliesOffset}&limit=${repliesLimit}`
-    );
+    let response = await axios.get(`/feeds/details/${postUuid}`);
     if (response.status === 200) {
-      let parentPost = response.data.parent;
-      let postReplies = response.data.replies;
-
-      return {
-        uuid: parentPost.uuid,
-        body: parentPost.body,
-        createdAt: parentPost.created_at,
-        likeCount: parentPost.like_count,
-        replyCount: parentPost.reply_count,
-        likedByMe: parentPost.liked_by_user,
-        user: {
-          username: parentPost.poster.username,
-          realName: parentPost.poster.real_name,
-        },
-        replies: postReplies.map((reply) => {
-          return {
-            uuid: reply.uuid,
-            body: reply.body,
-            likeCount: reply.like_count,
-            replyCount: reply.reply_count,
-            likedByMe: reply.liked_by_user,
-            user: {
-              username: reply.poster.username,
-              realName: reply.poster.real_name,
-            },
-          };
-        }),
-      };
+      return parsePost(response.data);
     }
   } catch (error) {
     console.log(error);
   }
 
   return null;
+}
+
+async function loadReplies(postUuid, offset = 0, limit = 5) {
+  try {
+    let response = await axios.get(
+      `/feeds/replies/${postUuid}?offset=${offset}&limit=${limit}`
+    );
+    if (response.status === 200) {
+      let replies = response.data.replies.map((reply) => parsePost(reply));
+      return replies;
+    }
+  } catch (error) {
+    console.log(error);
+  }
+
+  return [];
+}
+
+export async function loader({ params }) {
+  let postUuid = params.postUuid;
+  let post = await loadPost(postUuid);
+  return post;
 }
 
 export async function action({ request, params }) {
@@ -74,60 +81,54 @@ export async function action({ request, params }) {
 }
 
 export default function Post() {
-  const [post, setPost] = useState(null);
+  const post = useLoaderData();
   const fetcher = useFetcher();
-  const { postUuid } = useParams();
-  const navigate = useNavigate();
   const navigation = useNavigation();
+  const navigate = useNavigate();
   const formRef = useRef(null);
 
-  useEffect(() => {
-    loadPost(postUuid, 0, PAGE_SIZE).then((newPost) => {
-      setPost(newPost);
-    });
-  }, [postUuid]);
+  const [replies, setReplies] = useState([]);
 
+  useEffect(() => {
+    let fetchReplies = async () => {
+      let newReplies = await loadReplies(post.uuid);
+      setReplies(newReplies);
+    };
+    fetchReplies();
+  }, [post.uuid]);
+
+  // fetch reply data after its submitted and add at the top
   useEffect(() => {
     if (fetcher.data) {
       let fetchReplyData = async () => {
-        let replyData = await loadPost(fetcher.data.newReply.uuid, 0, 0);
-        setPost((post) => {
-          return {
-            ...post,
-            replies: [replyData, ...post.replies],
-          };
-        });
+        let newReply = await loadPost(fetcher.data.newReply.uuid);
+        setReplies((replies) => [newReply, ...replies]);
       };
 
       fetchReplyData();
     }
   }, [fetcher.data]);
 
+  // load more replies when user scrolls
   useEffect(() => {
     let handler = () => {
       if (
         window.scrollY / (document.body.scrollHeight - window.innerHeight) >
         0.8
       ) {
-        let reloadPost = async () => {
-          let newPost = await loadPost(
-            postUuid,
-            post.replies.length,
-            PAGE_SIZE
-          );
-          setPost((post) => ({
-            ...post,
-            replies: post.replies.concat(newPost.replies),
-          }));
+        let fetchMoreReplies = async () => {
+          let newReplies = await loadReplies(post.uuid, replies.length);
+          setReplies((replies) => replies.concat(newReplies));
         };
-        reloadPost();
+        fetchMoreReplies();
       }
     };
     window.addEventListener("scrollend", handler);
 
     return () => window.removeEventListener("scrollend", handler);
-  }, [post?.replies]);
+  }, [replies]);
 
+  // reset form after user submits
   useEffect(() => {
     if (
       navigation.state === "idle" &&
@@ -179,7 +180,7 @@ export default function Post() {
           </fetcher.Form>
           <hr />
 
-          {post.replies.map((reply, replyIndex) => {
+          {replies.map((reply, replyIndex) => {
             return (
               <PostCard
                 key={`post-${post.uuid}-reply-${replyIndex}`}

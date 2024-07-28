@@ -5,7 +5,10 @@ import ErrorPage from "./error-page";
 import Login, { action as loginAction } from "./routes/login";
 import Register, { action as registerAction } from "./routes/register";
 import Index, { action as indexAction } from "./routes";
-import Post, { action as postAction } from "./routes/post";
+import Post, {
+  loader as postLoader,
+  action as postAction,
+} from "./routes/post";
 import { likeAction } from "./components/interactions";
 
 const router = createBrowserRouter([
@@ -24,6 +27,7 @@ const router = createBrowserRouter([
       {
         path: "post/:postUuid",
         element: <Post />,
+        loader: postLoader,
         action: postAction,
       },
       {
