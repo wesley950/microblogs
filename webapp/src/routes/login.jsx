@@ -1,17 +1,13 @@
 import axios from "axios";
-import { Form, Link, redirect } from "react-router-dom";
+import {
+  Form,
+  Link,
+  Navigate,
+  redirect,
+  useRouteLoaderData,
+} from "react-router-dom";
 
-import Cookies from "js-cookie";
-import { storeAuthToken } from "../utils/cookies";
-
-export async function loader() {
-  let accessToken = Cookies.get("accessToken");
-  if (accessToken !== undefined) {
-    return redirect("/");
-  }
-
-  return null;
-}
+import { authProvider, storeAuthToken } from "../utils/auth";
 
 export async function action({ request }) {
   const formData = await request.formData();
@@ -30,15 +26,22 @@ export async function action({ request }) {
     console.log(error);
   }
 
-  // TODO: place error message in query string
+  // TODO: place error message in action data?
   return redirect("/entrar");
 }
 
 export default function Login() {
+  const { isAuthenticated } = useRouteLoaderData("root");
+
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <div className="container vh-100 d-flex justify-content-center align-items-center">
       <Form method="post" className="vstack gap-2 my-auto">
         <h3>entrar no microblogs</h3>
+        <p>{authProvider.isAuthenticated}</p>
         <input
           type="text"
           name="username"

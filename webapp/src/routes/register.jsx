@@ -1,17 +1,13 @@
-import { Form, Link, redirect } from "react-router-dom";
+import {
+  Form,
+  Link,
+  Navigate,
+  redirect,
+  useRouteLoaderData,
+} from "react-router-dom";
 
-import Cookies from "js-cookie";
 import axios from "axios";
-import { storeAuthToken } from "../utils/cookies";
-
-export async function loader() {
-  let accessToken = Cookies.get("accessToken");
-  if (accessToken !== undefined) {
-    return redirect("/");
-  }
-
-  return null;
-}
+import { storeAuthToken } from "../utils/auth";
 
 export async function action({ request }) {
   const formData = await request.formData();
@@ -39,6 +35,11 @@ export async function action({ request }) {
 }
 
 export default function Register() {
+  const { isAuthenticated } = useRouteLoaderData("root");
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <div className="container vh-100 d-flex justify-content-center align-items-center">
       <Form method="post" className="vstack gap-2 my-auto">

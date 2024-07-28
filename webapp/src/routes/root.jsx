@@ -1,15 +1,9 @@
 import axios from "axios";
-import {
-  Outlet,
-  useLoaderData,
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
-import { useEffect } from "react";
+import { Navigate, Outlet, useLoaderData, useLocation } from "react-router-dom";
 
 import Cookies from "js-cookie";
 import Navbar from "../components/navbar";
-import { storeAuthToken } from "../utils/cookies";
+import { storeAuthToken } from "../utils/auth";
 
 export async function loader() {
   axios.defaults.baseURL = import.meta.env.VITE_API_BASE_ADDRESS;
@@ -23,7 +17,7 @@ export async function loader() {
       if (res.status === 200) {
         storeAuthToken(res.data.token);
         return {
-          isLogged: true,
+          isAuthenticated: true,
         };
       }
     } catch (error) {
@@ -32,24 +26,21 @@ export async function loader() {
   }
 
   return {
-    isLogged: false,
+    isAuthenticated: false,
   };
 }
 
 export default function Root() {
-  const { isLogged } = useLoaderData();
+  const { isAuthenticated } = useLoaderData();
   const location = useLocation();
-  const navigate = useNavigate();
 
-  useEffect(() => {
-    if (
-      !isLogged &&
-      location.pathname !== "/entrar" &&
-      location.pathname !== "/registrar"
-    ) {
-      navigate("/entrar");
-    }
-  }, [isLogged]);
+  if (
+    !isAuthenticated &&
+    location.pathname !== "/entrar" &&
+    location.pathname !== "/registrar"
+  ) {
+    return <Navigate to="entrar" replace />;
+  }
 
   return (
     <>

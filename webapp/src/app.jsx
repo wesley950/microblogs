@@ -1,20 +1,16 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
+
 import Root, { loader as rootLoader } from "./routes/root";
 import ErrorPage from "./error-page";
-import Login, {
-  loader as loginLoader,
-  action as loginAction,
-} from "./routes/login";
-import Register, {
-  loader as registerLoader,
-  action as registerAction,
-} from "./routes/register";
+import Login, { action as loginAction } from "./routes/login";
+import Register, { action as registerAction } from "./routes/register";
 import Index, { action as indexAction } from "./routes";
 import Post, { action as postAction } from "./routes/post";
 import { likeAction } from "./components/interactions";
 
 const router = createBrowserRouter([
   {
+    id: "root",
     path: "/",
     element: <Root />,
     loader: rootLoader,
@@ -35,15 +31,13 @@ const router = createBrowserRouter([
         action: likeAction,
       },
       {
-        path: "/entrar",
+        path: "entrar",
         element: <Login />,
-        loader: loginLoader,
         action: loginAction,
       },
       {
-        path: "/registrar",
+        path: "registrar",
         element: <Register />,
-        loader: registerLoader,
         action: registerAction,
       },
     ],
