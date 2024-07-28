@@ -1,5 +1,7 @@
 use actix_web::{
-    delete, post, web::{self, ServiceConfig}, Error, HttpResponse
+    delete, post,
+    web::{self, ServiceConfig},
+    Error, HttpResponse,
 };
 use chrono::NaiveDateTime;
 use diesel::{
@@ -8,6 +10,7 @@ use diesel::{
 };
 use microblogs::{
     errors::ServiceError,
+    generate_uid,
     schema::{self, posts::like_count},
     DbPool,
 };
@@ -17,18 +20,19 @@ use crate::users::UserDetails;
 
 #[derive(Deserialize)]
 struct PostCreate {
-    parent_id: Option<i32>,
+    parent_uuid: Option<String>,
     body: String,
 }
 
 #[derive(Deserialize)]
 struct PostLikeQuery {
-    id: i32,
+    uuid: String,
 }
 
 #[derive(Insertable)]
 #[diesel(table_name = schema::posts)]
 struct NewPost<'a> {
+    pub uuid: String,
     pub parent_id: Option<i32>,
     pub poster_id: i32,
     pub body: &'a str,
@@ -42,10 +46,11 @@ struct NewLike {
 }
 
 #[derive(Queryable, Selectable)]
-#[diesel(table_name=schema::posts)]
+#[diesel(table_name = schema::posts)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Post {
     pub id: i32,
+    pub uuid: String,
     pub body: String,
     pub created_at: NaiveDateTime,
     pub reply_count: i32,
@@ -65,18 +70,17 @@ pub struct Like {
 
 #[derive(Serialize)]
 struct PostRead {
-    id: i32,
+    uuid: String,
 }
 
 impl From<Post> for PostRead {
     fn from(post: Post) -> Self {
-        Self { id: post.id }
+        Self { uuid: post.uuid }
     }
 }
 
 #[derive(Serialize)]
 struct LikeRead {
-    id: i32,
     user_id: i32,
     post_id: i32,
     created_at: String,
@@ -86,7 +90,6 @@ struct LikeRead {
 impl From<Like> for LikeRead {
     fn from(like: Like) -> Self {
         LikeRead {
-            id: like.id,
             user_id: like.user_id,
             post_id: like.post_id,
             created_at: like.created_at.to_string(),
@@ -110,19 +113,22 @@ async fn create_post(
         };
 
         let result = conn.transaction::<Post, diesel::result::Error, _>(|conn| {
-            if let Some(target_parent_id) = info.parent_id {
-                if let Err(_) = diesel::update(posts)
-                    .filter(id.eq(target_parent_id))
-                    .set(reply_count.eq(reply_count + 1))
-                    .returning(Post::as_returning())
-                    .get_result(conn)
-                {
-                    return Err(diesel::result::Error::RollbackTransaction);
-                }
+            let updated_parent_id = match &info.parent_uuid {
+                Some(parent_uuid) => Some(
+                    diesel::update(posts)
+                        .filter(uuid.eq(parent_uuid))
+                        .set(reply_count.eq(reply_count + 1))
+                        .returning(Post::as_returning())
+                        .get_result(conn)?
+                        .id,
+                ),
+                None => None,
             };
 
+            let post_uuid = generate_uid();
             let new_post = NewPost {
-                parent_id: info.parent_id,
+                uuid: post_uuid,
+                parent_id: updated_parent_id,
                 poster_id: current_user.id,
                 body: &info.body,
             };
@@ -155,10 +161,8 @@ async fn like_post(
     pool: web::Data<DbPool>,
     current_user: UserDetails,
 ) -> Result<HttpResponse, Error> {
-    use schema::likes::dsl::{
-        deleted as like_deleted, likes, post_id as like_post_id, user_id as like_user_id,
-    };
-    use schema::posts::dsl::{deleted as post_deleted, id as post_id, posts};
+    use schema::likes::dsl::{deleted as like_deleted, likes, user_id as like_user_id};
+    use schema::posts::dsl::{deleted as post_deleted, id as post_id, posts, uuid as post_uuid};
 
     let result = web::block(move || {
         let mut conn = match pool.get() {
@@ -167,25 +171,33 @@ async fn like_post(
         };
 
         let like = conn.transaction::<Like, diesel::result::Error, _>(|conn| {
-            if let Ok(_) = likes
+            if let Ok((_, post)) = likes
+                .inner_join(posts)
                 .filter(
-                    like_post_id
-                        .eq(post_like.id)
-                        .and(like_user_id.eq(current_user.id).and(like_deleted.eq(false))),
+                    post_uuid
+                        .eq(&post_like.uuid)
+                        .and(like_user_id.eq(current_user.id))
+                        .and(like_deleted.eq(false)),
                 )
-                .first::<Like>(conn)
+                .select((Like::as_select(), Post::as_select()))
+                .first(conn)
             {
                 return Err(diesel::result::Error::DatabaseError(
                     diesel::result::DatabaseErrorKind::UniqueViolation,
                     Box::new(format!(
                         "User {} already liked post {}",
-                        current_user.id, post_like.id
+                        current_user.username, post.uuid
                     )),
                 ));
-            }
+            };
+
+            let post: Post = posts
+                .filter(post_uuid.eq(&post_like.uuid))
+                .select(Post::as_select())
+                .first(conn)?;
 
             let new_like = NewLike {
-                post_id: post_like.id,
+                post_id: post.id,
                 user_id: current_user.id,
             };
 
@@ -195,14 +207,10 @@ async fn like_post(
                 .get_result(conn)
             {
                 Ok(like) => {
-                    if let Err(_) = diesel::update(posts)
-                        .filter(post_id.eq(post_like.id).and(post_deleted.eq(false)))
+                    diesel::update(posts)
+                        .filter(post_id.eq(post.id).and(post_deleted.eq(false)))
                         .set(like_count.eq(like_count + 1))
-                        .execute(conn)
-                    {
-                        return Err(diesel::result::Error::RollbackTransaction);
-                    }
-
+                        .execute(conn)?;
                     like
                 }
                 Err(_) => return Err(diesel::result::Error::RollbackTransaction),
@@ -228,10 +236,9 @@ async fn unlike_post(
     current_user: UserDetails,
 ) -> Result<HttpResponse, Error> {
     use schema::likes::dsl::{
-        deleted as like_deleted, id as like_id, likes, post_id as like_post_id,
-        user_id as like_user_id,
+        deleted as like_deleted, id as like_id, likes, user_id as like_user_id,
     };
-    use schema::posts::dsl::{deleted as post_deleted, id as post_id, posts};
+    use schema::posts::dsl::{deleted as post_deleted, id as post_id, posts, uuid as post_uuid};
 
     let result = web::block(move || {
         let mut conn = match pool.get() {
@@ -240,38 +247,31 @@ async fn unlike_post(
         };
 
         let like = conn.transaction::<Like, diesel::result::Error, _>(|conn| {
-            match likes
+            // check if like exists
+            let (like, post) = likes
+                .inner_join(posts)
                 .filter(
-                    like_post_id
-                        .eq(post_like.id)
-                        .and(like_user_id.eq(current_user.id).and(like_deleted.eq(false))),
+                    post_uuid
+                        .eq(&post_like.uuid)
+                        .and(like_user_id.eq(current_user.id))
+                        .and(like_deleted.eq(false)),
                 )
-                .first::<Like>(conn)
-            {
-                Ok(like) => {
-                    let like: Like = match diesel::update(likes)
-                        .filter(like_id.eq(like.id))
-                        .set(like_deleted.eq(true))
-                        .returning(Like::as_returning())
-                        .get_result(conn)
-                    {
-                        Ok(like) => {
-                            if let Err(_) = diesel::update(posts)
-                                .filter(post_id.eq(post_like.id).and(post_deleted.eq(false)))
-                                .set(like_count.eq(like_count - 1))
-                                .execute(conn)
-                            {
-                                return Err(diesel::result::Error::RollbackTransaction);
-                            }
+                .select((Like::as_select(), Post::as_select()))
+                .first(conn)?;
 
-                            like
-                        }
-                        Err(_) => return Err(diesel::result::Error::RollbackTransaction),
-                    };
-                    Ok(like)
-                }
-                Err(_) => return Err(diesel::result::Error::NotFound),
-            }
+            // set as deleted
+            diesel::update(likes)
+                .filter(like_id.eq(like.id))
+                .set(like_deleted.eq(true))
+                .execute(conn)?;
+
+            // update post like count
+            diesel::update(posts)
+                .filter(post_id.eq(post.id).and(post_deleted.eq(false)))
+                .set(like_count.eq(like_count - 1))
+                .execute(conn)?;
+
+            Ok(like)
         });
 
         match like {

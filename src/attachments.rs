@@ -14,9 +14,8 @@ use diesel::{
     query_dsl::methods::FilterDsl, Connection, ExpressionMethods, Insertable, Queryable,
     RunQueryDsl, Selectable, SelectableHelper,
 };
-use microblogs::{errors::ServiceError, schema, AppState, DbPool};
+use microblogs::{errors::ServiceError, generate_uid, schema, AppState, DbPool};
 use serde::Serialize;
-use uuid::Uuid;
 
 use crate::users::UserDetails;
 
@@ -114,7 +113,7 @@ async fn upload_attachment(
             None => return Err(ServiceError::BadRequest.into()),
         };
 
-        let attachment_uuid = Uuid::now_v7().simple();
+        let attachment_uuid = generate_uid();
         let saved_file_name = format!("{}.{}", stem, extension);
         let path = format!(
             "{}/{}/{}",

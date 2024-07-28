@@ -9,10 +9,9 @@ use argon2::{
     password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
     Argon2, PasswordHash, PasswordVerifier,
 };
-use chrono::NaiveDateTime;
 use diesel::{
-    query_dsl::filter_dsl::FilterDsl, BoolExpressionMethods, ExpressionMethods, Insertable,
-    Queryable, RunQueryDsl, Selectable, SelectableHelper,
+    query_dsl::filter_dsl::FilterDsl, query_dsl::methods::SelectDsl, BoolExpressionMethods,
+    ExpressionMethods, Insertable, Queryable, RunQueryDsl, Selectable, SelectableHelper,
 };
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
@@ -41,15 +40,9 @@ struct Claims {
     exp: usize,
 }
 
-#[derive(Serialize)]
 pub struct UserDetails {
     pub id: i32,
     pub username: String,
-    pub email: String,
-    pub real_name: String,
-    pub summary: String,
-    pub created_at: String,
-    pub deleted: bool,
 }
 
 impl From<User> for UserDetails {
@@ -57,11 +50,6 @@ impl From<User> for UserDetails {
         UserDetails {
             id: user.id,
             username: user.username,
-            email: user.email,
-            real_name: user.real_name,
-            summary: user.summary,
-            created_at: user.created_at.to_string(),
-            deleted: user.deleted,
         }
     }
 }
@@ -128,6 +116,7 @@ impl FromRequest for UserDetails {
 
         let user: User = match users
             .filter(username.eq(username_in_session).and(deleted.eq(false)))
+            .select(User::as_select())
             .first(&mut conn)
         {
             Ok(user) => user,
@@ -149,12 +138,7 @@ struct AccessInfo {
 struct User {
     pub id: i32,
     pub username: String,
-    pub email: String,
-    pub real_name: String,
-    pub summary: String,
     pub password: String,
-    pub created_at: NaiveDateTime,
-    pub deleted: bool,
 }
 
 #[derive(Insertable)]
@@ -247,7 +231,8 @@ async fn authenticate_user(
 
         let user: User = match users
             .filter(username.eq(target_username.as_str()))
-            .first(&mut conn)
+            .select(User::as_select())
+            .first::<User>(&mut conn)
         {
             Ok(user) => user,
             Err(_) => return Err(ServiceError::Unauthorized),
@@ -310,17 +295,11 @@ async fn refresh_access(
     Ok(HttpResponse::Ok().json(access_info))
 }
 
-#[get("/me")]
-async fn get_details(current_user: UserDetails) -> Result<HttpResponse, actix_web::Error> {
-    Ok(HttpResponse::Ok().json(current_user))
-}
-
 pub fn configure(cfg: &mut ServiceConfig) {
     cfg.service(
         web::scope("/users")
             .service(register_user)
             .service(authenticate_user)
-            .service(refresh_access)
-            .service(get_details),
+            .service(refresh_access),
     );
 }

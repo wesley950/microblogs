@@ -23,28 +23,26 @@ struct Pagination {
 
 #[derive(Deserialize)]
 struct TargetPostQuery {
-    id: i32,
+    uuid: String,
 }
 
 #[derive(Queryable, Selectable)]
 #[diesel(table_name = schema::users)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 struct Poster {
-    pub id: i32,
     pub username: String,
     pub real_name: String,
 }
 
 #[derive(Serialize)]
 struct PosterRead {
-    id: i32,
     username: String,
     real_name: String,
 }
 
 #[derive(Serialize)]
 struct PostRead {
-    id: i32,
+    uuid: String,
     body: String,
     created_at: String,
     reply_count: i32,
@@ -56,14 +54,13 @@ struct PostRead {
 impl From<(Post, Poster, Option<Like>)> for PostRead {
     fn from((post, poster, like): (Post, Poster, Option<Like>)) -> Self {
         Self {
-            id: post.id,
+            uuid: post.uuid,
             body: post.body,
             created_at: post.created_at.to_string(),
             reply_count: post.reply_count,
             like_count: post.like_count,
             liked_by_user: like.is_some(),
             poster: PosterRead {
-                id: poster.id,
                 username: poster.username,
                 real_name: poster.real_name,
             },
@@ -148,7 +145,7 @@ async fn get_replies(
         deleted as like_deleted, likes, post_id as like_post_id, user_id as like_user_id,
     };
     use schema::posts::dsl::{
-        created_at, deleted as post_deleted, id as post_id, parent_id, posts,
+        created_at, deleted as post_deleted, id as post_id, parent_id, posts, uuid as post_uuid,
     };
     use schema::users::dsl::users;
 
@@ -166,7 +163,7 @@ async fn get_replies(
                     .and(like_user_id.eq(current_user.id))
                     .and(like_deleted.eq(false))),
             )
-            .filter(post_id.eq(target_post.id).and(post_deleted.eq(false)))
+            .filter(post_uuid.eq(&target_post.uuid).and(post_deleted.eq(false)))
             .select((
                 Post::as_select(),
                 Poster::as_select(),
@@ -186,7 +183,7 @@ async fn get_replies(
                     .and(like_user_id.eq(current_user.id))
                     .and(like_deleted.eq(false))),
             )
-            .filter(post_deleted.eq(false).and(parent_id.eq(target_post.id)))
+            .filter(post_deleted.eq(false).and(parent_id.eq(parent_post.id)))
             .select((
                 Post::as_select(),
                 Poster::as_select(),
