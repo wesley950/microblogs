@@ -84,33 +84,67 @@ async fn upload_attachment(
                 // only allow images and videos
                 match content_type.type_().as_str() {
                     "image" | "video" => {}
-                    _ => return Err(ServiceError::BadRequest.into()),
+                    _ => return Err(ServiceError::BadRequest(format!("Somente imagens e vídeos são permitidos. Um dos arquivos tem o seguinte tipo: {}.", content_type)).into()),
                 }
             }
-            None => return Err(ServiceError::BadRequest.into()),
+            None => {
+                return Err(ServiceError::BadRequest(format!(
+                    "O cabeçalho \"Content-Type\" não está presente."
+                ))
+                .into())
+            }
         }
 
         let fname = match file.file_name {
             Some(fname) => fname.to_string(),
-            None => return Err(ServiceError::BadRequest.into()),
+            None => {
+                return Err(ServiceError::BadRequest(format!(
+                    "O cabeçalho \"Content-Disposition\" não está presente."
+                ))
+                .into())
+            }
         };
-        let fname = Path::new(&fname);
+        let fpath = Path::new(&fname);
 
-        let stem = match fname.file_stem() {
+        let stem = match fpath.file_stem() {
             Some(stem) => stem.to_str(),
-            None => return Err(ServiceError::BadRequest.into()),
+            None => {
+                return Err(ServiceError::BadRequest(format!(
+                    "Falha ao extrair o nome do arquivo \"{}\".",
+                    fname
+                ))
+                .into())
+            }
         };
         let stem = match stem {
             Some(stem) => stem,
-            None => return Err(ServiceError::BadRequest.into()),
+            None => {
+                return Err(ServiceError::InternalServerError(format!(
+                    "Falha ao converter o nome do arquivo \"{}\".",
+                    fname
+                ))
+                .into())
+            }
         };
-        let extension = match fname.extension() {
+        let extension = match fpath.extension() {
             Some(extension) => extension,
-            None => return Err(ServiceError::BadRequest.into()),
+            None => {
+                return Err(ServiceError::BadRequest(format!(
+                    "Falha ao extrair a extensão do arquivo \"{}\".",
+                    fname
+                ))
+                .into())
+            }
         };
         let extension = match extension.to_str() {
             Some(extension) => extension,
-            None => return Err(ServiceError::BadRequest.into()),
+            None => {
+                return Err(ServiceError::BadRequest(format!(
+                    "Falha ao converter a extensão do arquivo \"{}\".",
+                    fname
+                ))
+                .into())
+            }
         };
 
         let attachment_uuid = generate_uid();
@@ -121,7 +155,11 @@ async fn upload_attachment(
         );
 
         if let Err(_) = create_dir(format!("{}/{}", app_state.uploads_dir, attachment_uuid)) {
-            return Err(ServiceError::InternalServerError.into());
+            return Err(ServiceError::InternalServerError(format!(
+                "Não foi possível criar o diretório para o arquivo \"{}\".",
+                fname
+            ))
+            .into());
         };
 
         match file.file.persist(path) {
@@ -134,14 +172,24 @@ async fn upload_attachment(
 
                 attachments_to_save.push(new_attachment);
             }
-            Err(_) => return Err(ServiceError::InternalServerError.into()),
+            Err(_) => {
+                return Err(ServiceError::InternalServerError(format!(
+                    "Não foi possível salvar o arquivo \"{}\".",
+                    fname
+                ))
+                .into())
+            }
         }
     }
 
     let result = web::block(move || {
         let mut conn = match pool.get() {
             Ok(conn) => conn,
-            Err(_) => return Err(ServiceError::InternalServerError),
+            Err(_) => {
+                return Err(ServiceError::InternalServerError(format!(
+                    "Impossível conectar ao banco de dados."
+                )))
+            }
         };
 
         match conn.transaction::<Vec<AttachmentRead>, diesel::result::Error, _>(|conn| {
@@ -160,7 +208,12 @@ async fn upload_attachment(
             Ok(uploaded_attachments)
         }) {
             Ok(result) => Ok(result),
-            Err(_) => return Err(ServiceError::InternalServerError.into()),
+            Err(_) => {
+                return Err(ServiceError::InternalServerError(format!(
+                    "Um ou mais arquivos não puderam ser adicionados ao banco de dados."
+                ))
+                .into())
+            }
         }
     })
     .await??;
@@ -177,10 +230,15 @@ async fn download_attachment(
 ) -> Result<NamedFile, actix_web::Error> {
     use schema::attachments::dsl::*;
 
+    let target_attachment_uuid = attachment_uuid.clone();
     let fpath = web::block(move || {
         let mut conn = match pool.get() {
             Ok(conn) => conn,
-            Err(_) => return Err(ServiceError::InternalServerError),
+            Err(_) => {
+                return Err(ServiceError::InternalServerError(format!(
+                    "Impossível conectar ao banco de dados."
+                )))
+            }
         };
 
         let attachment: Attachment = match attachments
@@ -188,7 +246,12 @@ async fn download_attachment(
             .first(&mut conn)
         {
             Ok(attachment) => attachment,
-            Err(_) => return Err(ServiceError::NotFound),
+            Err(_) => {
+                return Err(ServiceError::NotFound(format!(
+                    "Anexo \"{}\" não encontrado.",
+                    attachment_uuid.clone()
+                )))
+            }
         };
 
         let path = format!(
@@ -211,7 +274,11 @@ async fn download_attachment(
                     parameters: vec![],
                 }))
         }
-        Err(_) => Err(ServiceError::InternalServerError.into()),
+        Err(_) => Err(ServiceError::InternalServerError(format!(
+            "Não foi possível abrir o arquivo do anexo \"{}\".",
+            target_attachment_uuid
+        ))
+        .into()),
     }
 }
 

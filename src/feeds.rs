@@ -92,7 +92,11 @@ async fn get_feed(
     let returned_posts = web::block(move || {
         let mut conn = match pool.get() {
             Ok(conn) => conn,
-            Err(_) => return Err(ServiceError::InternalServerError),
+            Err(_) => {
+                return Err(ServiceError::InternalServerError(format!(
+                    "Não foi possível conectar ao banco de dados."
+                )))
+            }
         };
 
         match posts
@@ -115,7 +119,11 @@ async fn get_feed(
             .load::<(Post, Poster, Option<Like>)>(&mut conn)
         {
             Ok(returned_posts) => Ok(returned_posts),
-            Err(_) => return Err(ServiceError::InternalServerError),
+            Err(_) => {
+                return Err(ServiceError::InternalServerError(format!(
+                    "Não foi possível carregar as postagens."
+                )))
+            }
         }
     })
     .await??;
@@ -143,7 +151,11 @@ async fn get_post_details(
     let ((post, poster), like) = web::block(move || {
         let mut conn = match pool.get() {
             Ok(conn) => conn,
-            Err(_) => return Err(ServiceError::InternalServerError),
+            Err(_) => {
+                return Err(ServiceError::InternalServerError(format!(
+                    "Não foi possível conectar ao banco de dados."
+                )))
+            }
         };
 
         match posts
@@ -167,7 +179,12 @@ async fn get_post_details(
             .first(&mut conn)
         {
             Ok((post, poster, like)) => Ok(((post, poster), like)),
-            Err(_) => return Err(ServiceError::InternalServerError),
+            Err(_) => {
+                return Err(ServiceError::InternalServerError(format!(
+                    "Não foi possível carregar a postagem {}.",
+                    target_post_uuid
+                )))
+            }
         }
     })
     .await??;
@@ -193,7 +210,11 @@ async fn get_replies(
     let returned_posts = web::block(move || {
         let mut conn = match pool.get() {
             Ok(conn) => conn,
-            Err(_) => return Err(ServiceError::InternalServerError),
+            Err(_) => {
+                return Err(ServiceError::InternalServerError(format!(
+                    "Não foi possível conectar ao banco de dados."
+                )))
+            }
         };
 
         let target_parent_id = match posts
@@ -206,7 +227,12 @@ async fn get_replies(
             .first(&mut conn)
         {
             Ok(post) => post.id,
-            Err(_) => return Err(ServiceError::NotFound),
+            Err(_) => {
+                return Err(ServiceError::NotFound(format!(
+                    "Postagem \"{}\" não encontrada.",
+                    target_post_uuid
+                )))
+            }
         };
 
         match posts
@@ -229,7 +255,12 @@ async fn get_replies(
             .load::<(Post, Poster, Option<Like>)>(&mut conn)
         {
             Ok(returned_posts) => Ok(returned_posts),
-            Err(_) => return Err(ServiceError::InternalServerError),
+            Err(_) => {
+                return Err(ServiceError::InternalServerError(format!(
+                    "Não foi possível carregar as respostas da postagem {}.",
+                    target_post_uuid
+                )))
+            }
         }
     })
     .await??;

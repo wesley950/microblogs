@@ -63,11 +63,21 @@ impl FromRequest for UserDetails {
 
         let pool = match req.app_data::<web::Data<DbPool>>() {
             Some(pool) => pool,
-            None => return ready(Err(ServiceError::InternalServerError.into())),
+            None => {
+                return ready(Err(ServiceError::InternalServerError(format!(
+                    "Impossível conectar ao banco de dados."
+                ))
+                .into()))
+            }
         };
         let app_state = match req.app_data::<web::Data<AppState>>() {
             Some(app_state) => app_state,
-            None => return ready(Err(ServiceError::InternalServerError.into())),
+            None => {
+                return ready(Err(ServiceError::InternalServerError(format!(
+                    "Impossível obter dados da aplicação."
+                ))
+                .into()))
+            }
         };
 
         let access_token = match req.headers().get("Authorization") {
@@ -75,12 +85,22 @@ impl FromRequest for UserDetails {
             Some(header) => {
                 let header_str = match header.to_str() {
                     Ok(header) => header,
-                    Err(_) => return ready(Err(ServiceError::InternalServerError.into())),
+                    Err(_) => {
+                        return ready(Err(ServiceError::InternalServerError(format!(
+                            "Falha ao converter o cabeçalho de autorização."
+                        ))
+                        .into()))
+                    }
                 };
 
                 let bearer_token = match header_str.strip_prefix("Bearer ") {
                     Some(token) => token.to_string(),
-                    None => return ready(Err(ServiceError::InternalServerError.into())),
+                    None => {
+                        return ready(Err(ServiceError::InternalServerError(format!(
+                            "Falha ao obter a chave de autorização do valor do cabeçalho."
+                        ))
+                        .into()))
+                    }
                 };
 
                 bearer_token
@@ -91,7 +111,12 @@ impl FromRequest for UserDetails {
                 let access_token_cookie = req.cookie("accessToken");
                 let access_token = match access_token_cookie {
                     Some(cookie) => cookie.value().to_owned(),
-                    None => return ready(Err(ServiceError::Unauthorized.into())),
+                    None => {
+                        return ready(Err(ServiceError::Unauthorized(format!(
+                            "Acesso negado porque o cookie \"accessToken\" não foi encontrado."
+                        ))
+                        .into()))
+                    }
                 };
 
                 access_token
@@ -105,22 +130,38 @@ impl FromRequest for UserDetails {
             &Validation::default(),
         ) {
             Ok(token) => token,
-            Err(_) => return ready(Err(ServiceError::Unauthorized.into())),
+            Err(_) => {
+                return ready(Err(ServiceError::Unauthorized(format!(
+                    "Não foi possível decodificar a chave."
+                ))
+                .into()))
+            }
         };
         let username_in_session = token_data.claims.sub;
 
         let mut conn = match pool.get() {
             Ok(conn) => conn,
-            Err(_) => return ready(Err(ServiceError::InternalServerError.into())),
+            Err(_) => {
+                return ready(Err(ServiceError::InternalServerError(format!(
+                    "Não foi possível conectar ao banco de dados."
+                ))
+                .into()))
+            }
         };
 
         let user: User = match users
-            .filter(username.eq(username_in_session).and(deleted.eq(false)))
+            .filter(username.eq(&username_in_session).and(deleted.eq(false)))
             .select(User::as_select())
             .first(&mut conn)
         {
             Ok(user) => user,
-            Err(_) => return ready(Err(ServiceError::Unauthorized.into())),
+            Err(_) => {
+                return ready(Err(ServiceError::Unauthorized(format!(
+                    "Usuário \"{}\" inexistente.",
+                    username_in_session
+                ))
+                .into()))
+            }
         };
 
         ready(Ok(user.into()))
@@ -163,7 +204,9 @@ async fn register_user(
         let mut conn = match pool.get() {
             Ok(conn) => conn,
             Err(_) => {
-                return Err(ServiceError::InternalServerError);
+                return Err(ServiceError::InternalServerError(format!(
+                    "Não foi possível conectar ao banco de dados."
+                )));
             }
         };
 
@@ -173,7 +216,9 @@ async fn register_user(
         let hashed_password = match argon2.hash_password(password_bytes, &salt) {
             Ok(hashed_password) => hashed_password.to_string(),
             Err(_) => {
-                return Err(ServiceError::InternalServerError);
+                return Err(ServiceError::InternalServerError(format!(
+                    "Falha ao criptografar a senha."
+                )));
             }
         };
         let new_user = NewUser {
@@ -190,7 +235,11 @@ async fn register_user(
             .get_result(&mut conn)
         {
             Ok(user) => return Ok(user),
-            Err(_) => return Err(ServiceError::BadRequest),
+            Err(_) => {
+                return Err(ServiceError::BadRequest(format!(
+                    "Falha ao registrar o novo usuário."
+                )))
+            }
         }
     })
     .await??;
@@ -206,7 +255,11 @@ async fn register_user(
         &EncodingKey::from_secret(secret.as_ref()),
     ) {
         Ok(token) => token,
-        Err(_) => return Err(ServiceError::InternalServerError.into()),
+        Err(_) => {
+            return Err(
+                ServiceError::InternalServerError(format!("Falha ao gerar a chave.")).into(),
+            )
+        }
     };
 
     let access_info = AccessInfo { token };
@@ -226,7 +279,11 @@ async fn authenticate_user(
     let user = web::block(move || {
         let mut conn = match pool.get() {
             Ok(conn) => conn,
-            Err(_) => return Err(ServiceError::InternalServerError),
+            Err(_) => {
+                return Err(ServiceError::InternalServerError(format!(
+                    "Impossível conectar ao banco de dados."
+                )))
+            }
         };
 
         let user: User = match users
@@ -235,7 +292,13 @@ async fn authenticate_user(
             .first::<User>(&mut conn)
         {
             Ok(user) => user,
-            Err(_) => return Err(ServiceError::Unauthorized),
+            Err(_) => {
+                return Err(ServiceError::Unauthorized(format!(
+                    "Usuário \"{}\" inexistente.",
+                    target_username
+                ))
+                .into())
+            }
         };
 
         Ok(user)
@@ -244,14 +307,19 @@ async fn authenticate_user(
 
     let parsed_password_hash = match PasswordHash::new(&user.password) {
         Ok(hash) => hash,
-        Err(_) => return Err(ServiceError::InternalServerError.into()),
+        Err(_) => {
+            return Err(ServiceError::InternalServerError(format!(
+                "Falha ao descriptografar a senha."
+            ))
+            .into())
+        }
     };
 
     let argon2 = Argon2::default();
     let verified = argon2.verify_password(target_password.as_bytes(), &parsed_password_hash);
 
     if verified.is_err() {
-        return Err(ServiceError::Unauthorized.into());
+        return Err(ServiceError::Unauthorized(format!("Credenciais inválidas.")).into());
     }
 
     let claims = Claims {
@@ -265,7 +333,12 @@ async fn authenticate_user(
         &EncodingKey::from_secret(secret.as_ref()),
     ) {
         Ok(token) => token,
-        Err(_) => return Err(ServiceError::InternalServerError.into()),
+        Err(_) => {
+            return Err(ServiceError::InternalServerError(format!(
+                "Falha ao gerar uma nova chave."
+            ))
+            .into())
+        }
     };
 
     let access_info = AccessInfo { token };
@@ -288,7 +361,12 @@ async fn refresh_access(
         &EncodingKey::from_secret(secret.as_ref()),
     ) {
         Ok(token) => token,
-        Err(_) => return Err(ServiceError::InternalServerError.into()),
+        Err(_) => {
+            return Err(ServiceError::InternalServerError(format!(
+                "Falha ao gerar uma nova chave."
+            ))
+            .into())
+        }
     };
 
     let access_info = AccessInfo { token };

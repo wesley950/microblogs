@@ -109,7 +109,7 @@ async fn create_post(
     let post = web::block(move || {
         let mut conn = match pool.get() {
             Ok(conn) => conn,
-            Err(_) => return Err(ServiceError::InternalServerError),
+            Err(_) => return Err(ServiceError::InternalServerError(format!("Impossível conectar ao banco de dados."))),
         };
 
         let result = conn.transaction::<Post, diesel::result::Error, _>(|conn| {
@@ -147,7 +147,13 @@ async fn create_post(
 
         match result {
             Ok(post) => Ok(post),
-            Err(_) => Err(ServiceError::BadRequest),
+            Err(_) => {
+                if let Some(parent_uuid) = &info.parent_uuid {
+                    Err(ServiceError::BadRequest(format!("Não foi possível criar a postagem. Talvez a postagem {} (a qual você está tentando responder) não exista ou o corpo de texto fornecido seja inválido.", parent_uuid)))
+                } else {
+                    Err(ServiceError::BadRequest(format!("Não foi possível criar a postagem. Talvez o corpo de texto fornecido seja inválido.")))
+                }
+            },
         }
     })
     .await??;
@@ -167,7 +173,7 @@ async fn like_post(
     let result = web::block(move || {
         let mut conn = match pool.get() {
             Ok(conn) => conn,
-            Err(_) => return Err(ServiceError::InternalServerError),
+            Err(_) => return Err(ServiceError::InternalServerError(format!("Impossível conectar ao banco de dados."))),
         };
 
         let like = conn.transaction::<Like, diesel::result::Error, _>(|conn| {
@@ -221,7 +227,7 @@ async fn like_post(
 
         match like {
             Ok(like) => Ok(like),
-            Err(_) => Err(ServiceError::BadRequest),
+            Err(_) => Err(ServiceError::BadRequest(format!("Impossível curtir a postagem {}. Talvez a postagem {} (a qual você está tentando curtir) não exista ou você já tenha curtido.", post_like.uuid, post_like.uuid))),
         }
     })
     .await??;
@@ -243,7 +249,11 @@ async fn unlike_post(
     let result = web::block(move || {
         let mut conn = match pool.get() {
             Ok(conn) => conn,
-            Err(_) => return Err(ServiceError::InternalServerError),
+            Err(_) => {
+                return Err(ServiceError::InternalServerError(format!(
+                    "Impossível conectar ao banco de dados."
+                )))
+            }
         };
 
         let like = conn.transaction::<Like, diesel::result::Error, _>(|conn| {
@@ -276,7 +286,10 @@ async fn unlike_post(
 
         match like {
             Ok(like) => Ok(like),
-            Err(_) => Err(ServiceError::BadRequest),
+            Err(_) => Err(ServiceError::BadRequest(format!(
+                "Não é possível remover a curtida do post {}. Talvez a curtida nem exista.",
+                post_like.uuid
+            ))),
         }
     })
     .await??;
