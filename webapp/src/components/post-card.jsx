@@ -9,7 +9,7 @@ export default function PostCard({
   truncate = false,
   linkToPost = false,
 }) {
-  const { paragraphs, mediaUrls } = parseBody(post.body);
+  const { withoutUrls, paragraphs, mediaUrls } = parseBody(post.body);
 
   return (
     <div className="card">
@@ -34,11 +34,17 @@ export default function PostCard({
                 maxHeight: "100px",
               }}
             >
-              {post.body}
+              {withoutUrls}
             </p>
           ) : (
             paragraphs.map((paragraph, index) => (
-              <p key={`post-${post.uuid}-paragraph-${index}`}>{paragraph}</p>
+              <>
+                {paragraph !== "" && (
+                  <p key={`post-${post.uuid}-paragraph-${index}`}>
+                    {paragraph}
+                  </p>
+                )}
+              </>
             ))
           )}
 
