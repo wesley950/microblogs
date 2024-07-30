@@ -1,9 +1,11 @@
 use diesel::{
-    r2d2::{self, ConnectionManager},
+    r2d2::{self, ConnectionManager, PooledConnection},
     SqliteConnection,
 };
 use rand::Rng;
+use serde::Deserialize;
 
+pub type DbConn = PooledConnection<ConnectionManager<SqliteConnection>>;
 pub type DbPool = r2d2::Pool<ConnectionManager<SqliteConnection>>;
 
 pub mod errors;
@@ -12,6 +14,12 @@ pub mod schema;
 pub struct AppState {
     pub secret_key: String,
     pub uploads_dir: String,
+}
+
+#[derive(Deserialize)]
+pub struct Pagination {
+    pub offset: i32,
+    pub limit: i32,
 }
 
 pub fn generate_uid() -> String {

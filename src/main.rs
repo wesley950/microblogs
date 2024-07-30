@@ -10,6 +10,7 @@ use microblogs::AppState;
 mod attachments;
 mod feeds;
 mod posts;
+mod profiles;
 mod users;
 
 #[actix_web::main]
@@ -51,6 +52,7 @@ async fn main() -> Result<(), std::io::Error> {
                     .max_age(3600),
             )
             .configure(users::configure)
+            .configure(profiles::configure)
             .configure(attachments::configure)
             .configure(posts::configure)
             .configure(feeds::configure)

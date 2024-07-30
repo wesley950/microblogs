@@ -12,3 +12,18 @@ export function parseBody(body) {
     mediaUrls,
   };
 }
+
+export function parsePost(post) {
+  return {
+    uuid: post.uuid,
+    body: post.body,
+    createdAt: new Date(post.created_at),
+    likeCount: post.like_count,
+    replyCount: post.reply_count,
+    likedByMe: post.liked_by_user,
+    user: {
+      username: post.poster.username,
+      realName: post.poster.real_name,
+    },
+  };
+}

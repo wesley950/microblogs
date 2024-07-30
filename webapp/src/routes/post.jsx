@@ -9,21 +9,7 @@ import PostCard from "../components/post-card";
 import axios from "axios";
 import { useEffect, useRef, useState } from "react";
 import PostBodyTextarea from "../components/post-body-textarea";
-
-function parsePost(post) {
-  return {
-    uuid: post.uuid,
-    body: post.body,
-    createdAt: new Date(post.created_at),
-    likeCount: post.like_count,
-    replyCount: post.reply_count,
-    likedByMe: post.liked_by_user,
-    user: {
-      username: post.poster.username,
-      realName: post.poster.real_name,
-    },
-  };
-}
+import { parsePost } from "../utils/media";
 
 async function loadPost(postUuid) {
   try {

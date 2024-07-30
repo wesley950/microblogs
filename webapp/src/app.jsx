@@ -10,6 +10,7 @@ import Post, {
   action as postAction,
 } from "./routes/post";
 import { likeAction } from "./components/interactions";
+import Profile, { loader as profileLoader } from "./routes/profile";
 
 const router = createBrowserRouter([
   {
@@ -23,6 +24,11 @@ const router = createBrowserRouter([
         index: true,
         element: <Index />,
         action: indexAction,
+      },
+      {
+        path: "/perfil/:username",
+        element: <Profile />,
+        loader: profileLoader,
       },
       {
         path: "post/:postUuid",

@@ -7,36 +7,30 @@ use diesel::{
     BoolExpressionMethods, ExpressionMethods, JoinOnDsl, QueryDsl, Queryable, RunQueryDsl,
     Selectable, SelectableHelper,
 };
-use microblogs::{errors::ServiceError, schema, DbPool};
-use serde::{Deserialize, Serialize};
+use microblogs::{errors::ServiceError, schema, DbPool, Pagination};
+use serde::Serialize;
 
 use crate::{
     posts::{Like, Post},
     users::UserDetails,
 };
 
-#[derive(Deserialize)]
-struct Pagination {
-    offset: i32,
-    limit: i32,
-}
-
 #[derive(Queryable, Selectable)]
 #[diesel(table_name = schema::users)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
-struct Poster {
+pub struct Poster {
     pub username: String,
     pub real_name: String,
 }
 
 #[derive(Serialize)]
-struct PosterRead {
+pub struct PosterRead {
     username: String,
     real_name: String,
 }
 
 #[derive(Serialize)]
-struct PostRead {
+pub struct PostRead {
     uuid: String,
     body: String,
     created_at: String,
@@ -79,7 +73,6 @@ async fn get_feed(
     pool: web::Data<DbPool>,
     current_user: UserDetails,
 ) -> Result<HttpResponse, actix_web::Error> {
-    use diesel::prelude::*;
     use schema::likes::dsl::{
         deleted as like_deleted, likes, post_id as like_post_id, user_id as like_user_id,
     };
