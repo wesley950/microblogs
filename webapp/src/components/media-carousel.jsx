@@ -10,7 +10,7 @@ export default function MediaCarousel({ postUuid, mediaUrls, maxImageHeight }) {
         {mediaUrls.map((imageUrl, index) => (
           <div
             className={`carousel-item ${index === 0 ? "active" : ""}`}
-            key={`post-${index}-image-${index}`}
+            key={`post-${index}-media-${index}`}
             style={{
               height: `${maxImageHeight}`,
               minHeight: `${maxImageHeight}`,

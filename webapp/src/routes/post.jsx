@@ -3,7 +3,6 @@ import {
   useLoaderData,
   useNavigate,
   useNavigation,
-  useParams,
 } from "react-router-dom";
 import PostCard from "../components/post-card";
 import axios from "axios";

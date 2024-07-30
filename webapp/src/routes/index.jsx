@@ -8,7 +8,9 @@ const PAGE_SIZE = 5;
 
 async function loadPosts(offset, limit) {
   try {
-    let response = await axios.get(`/feeds/list?offset=${offset}&limit=${limit}`);
+    let response = await axios.get(
+      `/feeds/list?offset=${offset}&limit=${limit}`
+    );
     if (response.status === 200) {
       return response.data.posts.map((post) => {
         return {
@@ -76,14 +78,14 @@ export default function Index() {
   }, [posts]);
 
   return (
-    <div className="container vh-100 d-flex vstack gap-2 my-2">
-      <Form method="post" className="vstack gap-1">
-        <PostBodyTextarea placeholder={"faça uma publicação..."} />
-        <button className="btn btn-primary" type="submit">
-          <i className="bi bi-pencil"></i> publicar
-        </button>
-      </Form>
-      <Feed posts={posts} />
-    </div>
+      <div className="container vh-100 d-flex vstack gap-2 my-2">
+        <Form method="post" className="vstack gap-1">
+          <PostBodyTextarea placeholder={"faça uma publicação..."} />
+          <button className="btn btn-primary" type="submit">
+            <i className="bi bi-pencil"></i> publicar
+          </button>
+        </Form>
+        <Feed posts={posts} />
+      </div>
   );
 }

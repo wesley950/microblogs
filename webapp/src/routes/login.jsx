@@ -7,7 +7,7 @@ import {
   useRouteLoaderData,
 } from "react-router-dom";
 
-import { authProvider, storeAuthToken } from "../utils/auth";
+import { storeAuthToken } from "../utils/auth";
 
 export async function action({ request }) {
   const formData = await request.formData();
@@ -41,7 +41,6 @@ export default function Login() {
     <div className="container vh-100 d-flex justify-content-center align-items-center">
       <Form method="post" className="vstack gap-2 my-auto">
         <h3>entrar no microblogs</h3>
-        <p>{authProvider.isAuthenticated}</p>
         <input
           type="text"
           name="username"
