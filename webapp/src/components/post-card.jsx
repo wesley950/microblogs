@@ -37,14 +37,10 @@ export default function PostCard({
               {withoutUrls}
             </p>
           ) : (
-            paragraphs.map((paragraph, index) => (
-              <>
-                {paragraph !== "" && (
-                  <p key={`post-${post.uuid}-paragraph-${index}`}>
-                    {paragraph}
-                  </p>
-                )}
-              </>
+            paragraphs.map((paragraph, paragraphIndex) => (
+              <p key={`post-${post.uuid}-paragraph-${paragraphIndex}`}>
+                {paragraph}
+              </p>
             ))
           )}
 

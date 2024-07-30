@@ -5,7 +5,10 @@ export function parseBody(body) {
   let withoutUrls = body.replace(URL_REGEX, "");
   return {
     withoutUrls,
-    paragraphs: withoutUrls.split("\n").map((paragraph) => paragraph.trim()),
+    paragraphs: withoutUrls
+      .split("\n")
+      .filter((paragraph) => paragraph !== "")
+      .map((paragraph) => paragraph.trim()),
     mediaUrls,
   };
 }
