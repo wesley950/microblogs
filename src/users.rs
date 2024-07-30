@@ -43,6 +43,7 @@ struct Claims {
 pub struct UserDetails {
     pub id: i32,
     pub username: String,
+    pub real_name: String,
 }
 
 impl From<User> for UserDetails {
@@ -50,6 +51,7 @@ impl From<User> for UserDetails {
         UserDetails {
             id: user.id,
             username: user.username,
+            real_name: user.real_name,
         }
     }
 }
@@ -171,6 +173,8 @@ impl FromRequest for UserDetails {
 #[derive(Serialize)]
 struct AccessInfo {
     token: String,
+    username: String,
+    real_name: String,
 }
 
 #[derive(Queryable, Selectable)]
@@ -179,6 +183,7 @@ struct AccessInfo {
 struct User {
     pub id: i32,
     pub username: String,
+    pub real_name: String,
     pub password: String,
 }
 
@@ -245,7 +250,7 @@ async fn register_user(
     .await??;
 
     let claims = Claims {
-        sub: user.username,
+        sub: user.username.clone(),
         exp: (chrono::Utc::now() + chrono::Duration::hours(24)).timestamp() as usize,
     };
     let secret = app_state.secret_key.clone();
@@ -262,7 +267,11 @@ async fn register_user(
         }
     };
 
-    let access_info = AccessInfo { token };
+    let access_info = AccessInfo {
+        token,
+        username: user.username,
+        real_name: user.real_name,
+    };
     Ok(HttpResponse::Ok().json(access_info))
 }
 
@@ -323,7 +332,7 @@ async fn authenticate_user(
     }
 
     let claims = Claims {
-        sub: user.username,
+        sub: user.username.clone(),
         exp: (chrono::Utc::now() + chrono::Duration::hours(24)).timestamp() as usize,
     };
     let secret = app_state.secret_key.clone();
@@ -341,7 +350,11 @@ async fn authenticate_user(
         }
     };
 
-    let access_info = AccessInfo { token };
+    let access_info = AccessInfo {
+        token,
+        username: user.username,
+        real_name: user.real_name,
+    };
     Ok(HttpResponse::Ok().json(access_info))
 }
 
@@ -351,7 +364,7 @@ async fn refresh_access(
     app_state: web::Data<AppState>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let claims = Claims {
-        sub: current_user.username,
+        sub: current_user.username.clone(),
         exp: (chrono::Utc::now() + chrono::Duration::hours(24)).timestamp() as usize,
     };
     let secret = app_state.secret_key.clone();
@@ -369,7 +382,11 @@ async fn refresh_access(
         }
     };
 
-    let access_info = AccessInfo { token };
+    let access_info = AccessInfo {
+        token,
+        username: current_user.username,
+        real_name: current_user.real_name,
+    };
     Ok(HttpResponse::Ok().json(access_info))
 }
 

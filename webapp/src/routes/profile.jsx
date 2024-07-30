@@ -78,38 +78,38 @@ export default function Profile() {
   }, [activity]);
 
   return (
-    <div className="container mt-2">
-      <div className="vstack gap-2 text-center">
-        <div className="hstack">
-          <button className="btn link-primary" onClick={() => navigate(-1)}>
-            <i className="bi bi-arrow-left"></i> voltar
-          </button>
+      <div className="container mt-2">
+        <div className="vstack gap-2 text-center">
+          <div className="hstack">
+            <button className="btn link-primary" onClick={() => navigate(-1)}>
+              <i className="bi bi-arrow-left"></i> voltar
+            </button>
+          </div>
+
+          <img
+            src={`https://api.dicebear.com/9.x/open-peeps/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`}
+            className="mx-auto rounded-circle img-thumbnail img-fluid"
+            width={120}
+          />
+          <h1>{profile.username}</h1>
+          <h2 className="text-muted">{profile.realName}</h2>
+          <p>Conta criada em {profile.createdAt.toLocaleString()}</p>
+          <p>{profile.summary}</p>
         </div>
 
-        <img
-          src={`https://api.dicebear.com/9.x/open-peeps/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`}
-          className="mx-auto rounded-circle img-thumbnail img-fluid"
-          width={120}
-        />
-        <h1>{profile.username}</h1>
-        <h2 className="text-muted">{profile.realName}</h2>
-        <p>Conta criada em {profile.createdAt.toLocaleString()}</p>
-        <p>{profile.summary}</p>
+        <hr />
+        <h3 className="text-center">Postagens e Respostas</h3>
+        <div className="vstack gap-2">
+          {activity.map((post) => {
+            return (
+              <PostCard
+                post={post}
+                key={`activity-post-card-${post.uuid}`}
+                linkToPost
+              />
+            );
+          })}
+        </div>
       </div>
-
-      <hr />
-      <h3 className="text-center">Postagens e Respostas</h3>
-      <div className="vstack gap-2">
-        {activity.map((post) => {
-          return (
-            <PostCard
-              post={post}
-              key={`activity-post-card-${post.uuid}`}
-              linkToPost
-            />
-          );
-        })}
-      </div>
-    </div>
   );
 }

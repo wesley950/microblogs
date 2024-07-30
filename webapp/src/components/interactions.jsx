@@ -39,7 +39,7 @@ export default function Interactions({
   }, [fetcher.formData]);
 
   return (
-    <div className="hstack gap-2 justify-content-evenly text-center">
+    <div className="hstack gap-2 justify-content-evenly text-center flex-wrap">
       <fetcher.Form method="post" action={`/post/${postUuid}/like`}>
         <button
           className="btn link-danger btn-md"
