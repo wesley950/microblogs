@@ -1,6 +1,6 @@
 import axios from "axios";
 import { useEffect, useState } from "react";
-import { useLoaderData } from "react-router-dom";
+import { useLoaderData, useNavigate } from "react-router-dom";
 
 import PostCard from "../components/post-card";
 import { parsePost } from "../utils/media";
@@ -45,6 +45,8 @@ export default function Profile() {
   const seed = encodeURI(`${profile.username}${profile.realName}`);
   const [activity, setActivity] = useState([]);
 
+  const navigate = useNavigate();
+
   useEffect(() => {
     async function loadActivity() {
       let newActivity = await loadUserPosts(profile.username);
@@ -78,6 +80,12 @@ export default function Profile() {
   return (
     <div className="container mt-2">
       <div className="vstack gap-2 text-center">
+        <div className="hstack">
+          <button className="btn link-primary" onClick={() => navigate(-1)}>
+            <i className="bi bi-arrow-left"></i> voltar
+          </button>
+        </div>
+
         <img
           src={`https://api.dicebear.com/9.x/open-peeps/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`}
           className="mx-auto rounded-circle img-thumbnail img-fluid"

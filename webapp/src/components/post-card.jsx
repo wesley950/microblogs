@@ -14,18 +14,19 @@ export default function PostCard({
   return (
     <div className="card">
       <div className="card-body">
+        <Link to={`/perfil/${post.user.username}`} className="text-decoration-none">
+          <UserAvatar
+            username={post.user.username}
+            realName={post.user.realName}
+          />
+        </Link>
         <div className="position-relative vstack gap-2">
           <Link
             to={`/post/${post.uuid}`}
             className={`text-decoration-none ${
               linkToPost ? "stretched-link" : ""
             }`}
-          >
-            <UserAvatar
-              username={post.user.username}
-              realName={post.user.realName}
-            />
-          </Link>
+          ></Link>
 
           {truncate ? (
             <p
