@@ -126,12 +126,7 @@ export default function Post() {
   }, [navigation.state, fetcher.state]);
 
   return (
-    <div
-      className="container vh-100 d-flex vstack gap-2 my-2"
-      style={{
-        maxWidth: 600,
-      }}
-    >
+    <div className="container vh-100 d-flex vstack gap-2 my-2">
       <div className="hstack">
         <button className="btn link-primary" onClick={() => navigate(-1)}>
           <i className="bi bi-arrow-left"></i> voltar

@@ -76,12 +76,7 @@ export default function Index() {
   }, [posts]);
 
   return (
-    <div
-      className="container vh-100 d-flex vstack gap-2 my-2"
-      style={{
-        maxWidth: 400,
-      }}
-    >
+    <div className="container vh-100 d-flex vstack gap-2 my-2">
       <Form method="post" className="vstack gap-1">
         <PostBodyTextarea placeholder={"faça uma publicação..."} />
         <button className="btn btn-primary" type="submit">
